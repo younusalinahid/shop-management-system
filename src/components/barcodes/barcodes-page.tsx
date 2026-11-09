@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { Barcode as BarcodeIcon, Minus, Plus, Printer, ScanLine, Trash2, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { BarcodeSvg } from '@/components/shared/barcode-svg'
@@ -20,9 +19,10 @@ import { type CatalogSnapshot, useCatalog } from '@/hooks/use-catalog'
 import { usePermission } from '@/hooks/use-permission'
 import { useSettings } from '@/hooks/use-settings'
 import { formatMoney } from '@/lib/money'
-import { errorMessage } from '@/services/errors'
-import { assignGeneratedBarcodes, findByBarcode } from '@/services/product-service'
-import { currentActor } from '@/stores/session-store'
+import { errorMessage } from '@/lib/errors'
+import { useRefreshData } from '@/hooks/use-catalog'
+import { api } from '@/lib/api-client'
+import { ApiError } from '@/lib/errors'
 
 interface LabelItem {
   barcodeId: ID
@@ -36,11 +36,11 @@ const LABEL_PRESETS = {
 } as const
 type PresetKey = keyof typeof LABEL_PRESETS
 
-export function BarcodesPage() {
+export function BarcodesPage({ productId }: { productId?: string }) {
   const catalog = useCatalog()
   const settings = useSettings()
   const canEdit = usePermission('products.edit')
-  const params = useSearchParams()
+  const refresh = useRefreshData()
   const [items, setItems] = useState<LabelItem[]>([])
   const [preset, setPreset] = useState<PresetKey>('roll-38x25')
   const [showPrice, setShowPrice] = useState(true)
@@ -51,11 +51,10 @@ export function BarcodesPage() {
   // Pre-fill from /barcodes?product=<id> (the "Print labels" button on a product).
   const prefilled = useRef(false)
   useEffect(() => {
-    const productId = params.get('product')
     if (!catalog || prefilled.current || !productId) return
     prefilled.current = true
     setItems((catalog.barcodesByProduct.get(productId) ?? []).map((b) => ({ barcodeId: b.id, copies: 1 })))
-  }, [catalog, params])
+  }, [catalog, productId])
 
   if (!catalog || !index) return <LoadingState />
 
@@ -68,10 +67,8 @@ export function BarcodesPage() {
 
   const generateMissing = async () => {
     try {
-      const n = await assignGeneratedBarcodes(
-        currentActor(),
-        missing.map((p) => p.id),
-      )
+      const { added: n } = await api.post<{ added: number }>('/api/barcodes/assign', { productIds: missing.map((p) => p.id) })
+      await refresh()
       toast.success(`${n} barcode(s) generated`)
     } catch (e) {
       toast.error(errorMessage(e))
@@ -346,7 +343,15 @@ function ScanTester() {
   const lookup = async () => {
     const c = code.trim()
     if (!c) return
-    const hit = await findByBarcode(c)
+    let hit: { product: Product; unit?: ProductUnit } | null = null
+    try {
+      hit = await api.get(`/api/barcodes/lookup?code=${encodeURIComponent(c)}`)
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 404)) {
+        setResult({ code: c, ok: false, text: errorMessage(e) })
+        return
+      }
+    }
     setResult(
       hit
         ? { code: c, ok: true, text: `${hit.product.name} — ${hit.unit?.name ?? hit.product.baseUnitName}${hit.product.status === 'archived' ? ' (archived)' : ''}` }

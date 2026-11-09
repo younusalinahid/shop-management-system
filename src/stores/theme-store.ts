@@ -22,10 +22,13 @@ function apply(theme: Theme) {
 interface ThemeState {
   theme: Theme
   setTheme: (t: Theme) => void
+  /** Load the saved choice. Call after mount: the server can't read localStorage, so both start at 'system'. */
+  hydrate: () => void
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({
-  theme: readTheme(),
+  theme: 'system',
+  hydrate: () => set({ theme: readTheme() }),
   setTheme: (theme) => {
     try {
       localStorage.setItem(KEY, theme)

@@ -1,6 +1,8 @@
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '@/db/database'
+import { useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Brand, Category, ID, Product, ProductBarcode, ProductUnit } from '@/types/db'
+import { api } from '@/lib/api-client'
+import type { CatalogSnapshot as CatalogResponse } from '@/lib/product'
 
 export interface CatalogSnapshot {
   products: Product[]
@@ -12,29 +14,32 @@ export interface CatalogSnapshot {
   brandById: Map<ID, Brand>
 }
 
-/** Live view of the whole catalog (re-renders on any product/unit/barcode/category/brand change). */
+export const catalogQuery = { queryKey: ['catalog'], queryFn: () => api.get<CatalogResponse>('/api/products') }
+
+/** The whole catalog from GET /api/products, indexed for quick lookups. Undefined while loading. */
 export function useCatalog(): CatalogSnapshot | undefined {
-  return useLiveQuery(async () => {
-    const [products, units, barcodes, categories, brands] = await Promise.all([
-      db.products.toArray(),
-      db.productUnits.toArray(),
-      db.productBarcodes.toArray(),
-      db.categories.toArray(),
-      db.brands.toArray(),
-    ])
+  const { data } = useQuery(catalogQuery)
+  return useMemo(() => {
+    if (!data) return undefined
     const unitsByProduct = new Map<ID, ProductUnit[]>()
-    for (const u of units) unitsByProduct.set(u.productId, [...(unitsByProduct.get(u.productId) ?? []), u])
+    for (const u of data.units) unitsByProduct.set(u.productId, [...(unitsByProduct.get(u.productId) ?? []), u])
     for (const list of unitsByProduct.values()) list.sort((a, b) => a.sortOrder - b.sortOrder)
     const barcodesByProduct = new Map<ID, ProductBarcode[]>()
-    for (const b of barcodes) barcodesByProduct.set(b.productId, [...(barcodesByProduct.get(b.productId) ?? []), b])
+    for (const b of data.barcodes) barcodesByProduct.set(b.productId, [...(barcodesByProduct.get(b.productId) ?? []), b])
     return {
-      products,
+      products: data.products,
       unitsByProduct,
       barcodesByProduct,
-      categories,
-      brands,
-      categoryById: new Map(categories.map((c) => [c.id, c])),
-      brandById: new Map(brands.map((b) => [b.id, b])),
+      categories: data.categories,
+      brands: data.brands,
+      categoryById: new Map(data.categories.map((c) => [c.id, c])),
+      brandById: new Map(data.brands.map((b) => [b.id, b])),
     }
-  }, [])
+  }, [data])
+}
+
+/** After a successful write: refetch everything that may show the changed data. */
+export function useRefreshData() {
+  const client = useQueryClient()
+  return () => client.invalidateQueries()
 }

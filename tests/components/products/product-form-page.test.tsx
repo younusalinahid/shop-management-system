@@ -1,28 +1,43 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ensureDefaults } from '@/db/bootstrap'
-import { db } from '@/db/database'
-import { createInitialOwner } from '@/services/auth-service'
-import { useSession } from '@/stores/session-store'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { asc, eq } from 'drizzle-orm'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProductFormPage } from '@/components/products/product-form-page'
+import { SessionProvider, type SessionUser } from '@/hooks/use-session'
+import { getDb } from '@/server/db'
+import { products, productUnits } from '@/server/db/schema'
+import { apiJson, mockFetchToApi } from '../../helpers/api'
 
 const push = vi.fn()
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace: vi.fn(), back: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
 }))
+
+let user: SessionUser
+let fetchSpy: ReturnType<typeof mockFetchToApi>
 
 beforeEach(async () => {
   push.mockClear()
-  await ensureDefaults()
-  const owner = await createInitialOwner({ name: 'Karim', username: 'owner', pin: '2468' })
-  useSession.getState().signIn(owner)
+  // Real API in-process: setup signs the owner in (cookie jar from tests/setup.ts).
+  fetchSpy = mockFetchToApi()
+  user = (await apiJson<{ user: SessionUser }>('POST', '/api/setup', { shopName: 'Shop', name: 'Karim', username: 'owner', pin: '2468' })).body.user
 })
 
+afterEach(() => fetchSpy.mockRestore())
+
 function renderForm() {
-  return render(<ProductFormPage />)
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={client}>
+      <SessionProvider user={user}>
+        <ProductFormPage />
+      </SessionProvider>
+    </QueryClientProvider>,
+  )
 }
+
+const allProducts = async () => (await getDb()).select().from(products)
 
 describe('ProductFormPage', () => {
   it('creates rice sold by Gram, KG and Sack, with the sack defined as 25 KG', async () => {
@@ -48,10 +63,10 @@ describe('ProductFormPage', () => {
     await user.click(screen.getByRole('button', { name: 'Add product' }))
     await vi.waitFor(() => expect(push).toHaveBeenCalled())
 
-    const p = await db.products.toCollection().first()
-    expect(push).toHaveBeenCalledWith(`/products/view?id=${p!.id}`)
+    const [p] = await allProducts()
+    expect(push).toHaveBeenCalledWith(`/products/${p.id}`)
     expect(p).toMatchObject({ name: 'Miniket Rice', baseUnitName: 'Gram', allowFraction: true, stockQty: 0 })
-    const units = await db.productUnits.where('productId').equals(p!.id).sortBy('sortOrder')
+    const units = await (await getDb()).select().from(productUnits).where(eq(productUnits.productId, p.id)).orderBy(asc(productUnits.sortOrder))
     expect(units.map((u) => [u.name, u.factor, u.retailPrice])).toEqual([
       ['Gram', 1, 0],
       ['KG', 1000, 7800],
@@ -69,6 +84,6 @@ describe('ProductFormPage', () => {
     expect(await screen.findByText('Product name is required')).toBeInTheDocument()
     expect(screen.getByText('Name required')).toBeInTheDocument()
     expect(screen.getByText(/Must come to a whole number of Piece/)).toBeInTheDocument()
-    expect(await db.products.count()).toBe(0)
+    expect(await allProducts()).toHaveLength(0)
   })
 })

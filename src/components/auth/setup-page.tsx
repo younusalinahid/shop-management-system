@@ -10,11 +10,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
-import { createInitialOwner, pinSchema, usernameSchema } from '@/services/auth-service'
-import { SYSTEM_ACTOR } from '@/services/audit-service'
-import { errorMessage } from '@/services/errors'
-import { updateSettings } from '@/services/settings-service'
-import { useSession } from '@/stores/session-store'
+import { api } from '@/lib/api-client'
+import { errorMessage } from '@/lib/errors'
+import { useRouter } from 'next/navigation'
+
+// Same rules as the server's setup API (src/app/api/setup/route.ts).
+const pinSchema = z.string().min(4, 'PIN must be at least 4 characters').max(32, 'PIN is too long')
+const usernameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(2, 'Username must be at least 2 characters')
+  .max(32)
+  .regex(/^[a-z0-9._-]+$/, 'Use letters, numbers, dot, dash or underscore')
 
 const schema = z
   .object({
@@ -30,8 +38,8 @@ const schema = z
 
 type Values = z.infer<typeof schema>
 
-export function SetupPage({ onDone }: { onDone: () => void }) {
-  const signIn = useSession((s) => s.signIn)
+export function SetupPage() {
+  const router = useRouter()
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: { shopName: '', shopPhone: '', shopAddress: '', name: '', username: 'owner', pin: '', confirmPin: '' },
@@ -39,11 +47,10 @@ export function SetupPage({ onDone }: { onDone: () => void }) {
 
   const onSubmit = async (v: Values) => {
     try {
-      const user = await createInitialOwner({ name: v.name, username: v.username, pin: v.pin })
-      await updateSettings(SYSTEM_ACTOR, { shopName: v.shopName, shopPhone: v.shopPhone, shopAddress: v.shopAddress })
-      signIn(user)
-      toast.success('Shop set up', { description: 'Remember to export regular backups from Backup & Restore.' })
-      onDone()
+      await api.post('/api/setup', { shopName: v.shopName, shopPhone: v.shopPhone, shopAddress: v.shopAddress, name: v.name, username: v.username, pin: v.pin })
+      toast.success('Shop set up')
+      router.replace('/dashboard')
+      router.refresh()
     } catch (e) {
       toast.error(errorMessage(e))
     }
@@ -58,7 +65,7 @@ export function SetupPage({ onDone }: { onDone: () => void }) {
           </div>
           <CardTitle className="text-xl">Set up your shop</CardTitle>
           <CardDescription>
-            Everything is stored on this device only. You can change these details later in Settings.
+            Creates the owner account for your shop. You can change these details later in Settings.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -162,8 +169,7 @@ export function SetupPage({ onDone }: { onDone: () => void }) {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                The PIN separates users at the counter. It is checked on this device only and is not a substitute for
-                securing the device itself.
+                Use a PIN only you know. Every sale and change is recorded under the account that made it.
               </p>
               <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? 'Setting up…' : 'Create shop'}

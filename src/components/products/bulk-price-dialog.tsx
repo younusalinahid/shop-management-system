@@ -1,3 +1,5 @@
+'use client'
+
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -8,12 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { ID } from '@/types/db'
 import { mulToInteger, parseDecimal } from '@/lib/decimal'
 import { parseMoney } from '@/lib/money'
-import { errorMessage } from '@/services/errors'
-import { type BulkPriceInput, bulkUpdatePrices } from '@/services/product-service'
-import { currentActor } from '@/stores/session-store'
+import { errorMessage } from '@/lib/errors'
+import { useRefreshData } from '@/hooks/use-catalog'
+import { api } from '@/lib/api-client'
+import type { BulkPriceInput } from '@/lib/product'
 
 /** Raise or lower one price field across the selected products, in one atomic, audited update. */
 export function BulkPriceDialog({ productIds, canViewCost, onClose }: { productIds: ID[]; canViewCost: boolean; onClose: (done: boolean) => void }) {
+  const refresh = useRefreshData()
   const [field, setField] = useState<BulkPriceInput['field']>('retailPrice')
   const [scope, setScope] = useState<BulkPriceInput['scope']>('all')
   const [method, setMethod] = useState<BulkPriceInput['method']>('percent')
@@ -47,7 +51,9 @@ export function BulkPriceDialog({ productIds, canViewCost, onClose }: { productI
     }
     setBusy(true)
     try {
-      const n = await bulkUpdatePrices(currentActor(), { productIds, field, scope, method, value, roundTo: Number(roundTo) as 1 | 100, reason })
+      const body: BulkPriceInput = { productIds, field, scope, method, value, roundTo: Number(roundTo) as 1 | 100, reason: reason || undefined }
+      const { changed: n } = await api.post<{ changed: number }>('/api/products/bulk-price', body)
+      await refresh()
       toast.success(n === 0 ? 'No prices changed' : `${n} unit price(s) updated`)
       onClose(true)
     } catch (err) {

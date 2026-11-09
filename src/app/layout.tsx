@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
-import { AppBoot } from '@/components/layout/app-boot'
+import { Providers } from '@/components/layout/providers'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -30,7 +30,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>
-        <AppBoot>{children}</AppBoot>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

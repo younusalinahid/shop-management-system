@@ -1,43 +1,51 @@
 # Shop Management System (POS)
 
 Point of Sale and shop management for retail and wholesale shops in Bangladesh.
-Built with Next.js (App Router, static export) and TypeScript. It runs entirely in the browser, with no server and no
-cloud database. Data lives in IndexedDB on the device.
-After the first load it works fully offline, and you can install it as a PWA.
+Built with **Next.js 16** (App Router), TypeScript, **PostgreSQL** (Drizzle ORM) and REST-style
+**API routes**. Data lives on the server, so every device that signs in sees the same shop.
 
 ## Requirements
 
 - **Node.js 20 or newer** (developed with 22.x). With nvm-windows: `nvm use 22.23.2`.
+- PostgreSQL for production (Neon, Supabase, Railway or your own). Local development needs nothing:
+  without `DATABASE_URL`, the app runs **PGlite** (real Postgres in-process) in `./.data/pglite`.
+
+## Getting started
+
+```bash
+npm install
+npm run dev        # http://localhost:5173 → first visit opens the shop setup screen
+```
 
 ## Scripts
 
-| Command             | What it does                                    |
-| ------------------- | ----------------------------------------------- |
-| `npm run dev`       | Next.js dev server on http://localhost:5173 (no service worker in dev) |
-| `npm run build`     | Type-check, static export into `out/`, then generate the offline service worker |
-| `npm start`         | Serve `out/` on http://localhost:5173 (PWA and offline mode active) |
-| `npm test`          | Run the test suite once (Vitest + fake-indexeddb) |
-| `npm run typecheck` | TypeScript only                                 |
+| Command               | What it does                                                         |
+| --------------------- | -------------------------------------------------------------------- |
+| `npm run dev`         | Dev server on http://localhost:5173                                  |
+| `npm run build`       | Production build                                                     |
+| `npm start`           | Run the production build on port 5173                                |
+| `npm test`            | All tests (Vitest; services, API routes and UI run on in-memory Postgres) |
+| `npm run typecheck`   | TypeScript only                                                      |
+| `npm run db:generate` | Create a SQL migration in `drizzle/` after editing `src/server/db/schema.ts` |
+| `npm run db:migrate`  | Apply migrations to `DATABASE_URL`                                   |
+| `npm run db:studio`   | Browse the database (Drizzle Studio)                                 |
 
-Deploy the static `out/` folder to Vercel, Netlify or GitHub Pages. Pages are exported as `products.html` etc.;
-these hosts serve `/products` from it automatically. No SPA rewrite rule is needed.
+## Deploying to Vercel
 
-Port 5173 is used for both dev and preview on purpose: IndexedDB is tied to the origin (host + port), so changing
-the port would show an empty shop.
+1. Create a Postgres database (e.g. Neon) and copy its **pooled** connection string.
+2. In Vercel → Project → Settings → Environment Variables, set `DATABASE_URL` (see `.env.example`).
+3. Deploy. The `vercel-build` script applies migrations, then builds.
 
-## ⚠ Data safety — read this
+## Security notes
 
-- All data is stored **only in this browser on this device**.
-- Clearing browser/site data, uninstalling the browser, using a private window, or a device failure **can permanently erase everything**.
-- The app asks the browser for *persistent storage*. The browser may refuse, and even when it agrees, this does not guarantee the data survives.
-- **Export a JSON backup regularly** (Backup & Restore, Phase 8) and keep copies off the device.
-
-## ⚠ Security limitations
-
-- User PINs are hashed (PBKDF2-SHA256) but are checked **locally**. Anyone with access to the device and browser dev tools can read or change the database.
-- Role permissions and audit logs help keep counter work orderly. They are **not** tamper-proof security records and do not replace server-side authentication.
+- PINs are stored as PBKDF2-SHA256 hashes. Sessions use a random token in an httpOnly cookie; the
+  database keeps only its SHA-256.
+- Every API route checks the signed-in user's role (`src/lib/permissions.ts`); the UI hiding a button
+  is only a convenience.
+- The login screen lists account names and roles (not PIN data) so a shared counter device can pick a user.
+- Audit logs record who changed what. Back up the database regularly (your Postgres host's backups).
 
 ## Docs
 
-- [Architecture](docs/ARCHITECTURE.md): stack, folder layout, core rules (money, quantities, transactions)
-- [Database](docs/DATABASE.md): tables, indexes, migration process
+- [Architecture](docs/ARCHITECTURE.md): folder layout, API, auth, core rules (money, quantities, transactions)
+- [Database](docs/DATABASE.md): tables, constraints, migrations

@@ -1,43 +1,38 @@
 'use client'
 
-import { useLiveQuery } from 'dexie-react-hooks'
-import { Package, ReceiptText, Truck, Users } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { AlertTriangle, Award, Package, Tags } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { PageHeader } from '@/components/shared/page-header'
-import { StorageStatusCard } from '@/components/shared/storage-status-card'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { db } from '@/db/database'
-import { formatDate, startOfDay } from '@/lib/datetime'
+import { api } from '@/lib/api-client'
+import { formatDate } from '@/lib/datetime'
 import { useSettings } from '@/hooks/use-settings'
 
+interface DashboardData {
+  activeProducts: number
+  lowStockProducts: number
+  categories: number
+  brands: number
+}
+
 /**
- * Phase 1 dashboard: real record counts read straight from IndexedDB.
- * Sales/profit statistics and charts arrive in Phase 7 once those modules exist.
+ * Real figures from GET /api/dashboard. Sales, profit and cash statistics and the charts arrive in
+ * Phase 7, once those modules record data.
  */
 export function DashboardPage() {
   const settings = useSettings()
-  const counts = useLiveQuery(async () => {
-    const [products, customers, suppliers, salesToday] = await Promise.all([
-      db.products.where('status').equals('active').count(),
-      db.customers.where('status').equals('active').count(),
-      db.suppliers.where('status').equals('active').count(),
-      db.sales.where('createdAt').aboveOrEqual(startOfDay(Date.now())).count(),
-    ])
-    return { products, customers, suppliers, salesToday }
-  }, [])
+  const { data } = useQuery({ queryKey: ['dashboard'], queryFn: () => api.get<DashboardData>('/api/dashboard') })
 
   return (
     <>
       <PageHeader title="Dashboard" description={`${settings.shopName} · ${formatDate(Date.now())}`} />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat icon={ReceiptText} label="Sales today" value={counts?.salesToday} />
-        <Stat icon={Package} label="Active products" value={counts?.products} />
-        <Stat icon={Users} label="Customers" value={counts?.customers} />
-        <Stat icon={Truck} label="Suppliers" value={counts?.suppliers} />
-      </div>
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <StorageStatusCard />
+        <Stat icon={Package} label="Active products" value={data?.activeProducts} />
+        <Stat icon={AlertTriangle} label="Low-stock products" value={data?.lowStockProducts} />
+        <Stat icon={Tags} label="Categories" value={data?.categories} />
+        <Stat icon={Award} label="Brands" value={data?.brands} />
       </div>
     </>
   )

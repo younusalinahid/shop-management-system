@@ -19,17 +19,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { productEditUrl, productUrl } from '@/constants/navigation'
 import type { ID, Product, ProductUnit } from '@/types/db'
-import { type CatalogSnapshot, useCatalog } from '@/hooks/use-catalog'
+import { type CatalogSnapshot, useCatalog, useRefreshData } from '@/hooks/use-catalog'
 import { usePermission } from '@/hooks/use-permission'
 import { downloadText } from '@/lib/csv'
 import { todayDateOnly } from '@/lib/datetime'
 import { formatMoney } from '@/lib/money'
 import { bestDisplayUnit, formatQty } from '@/lib/units'
-import { categoryPath } from '@/services/catalog-service'
-import { errorMessage } from '@/services/errors'
-import { exportProductsCsv } from '@/services/product-csv-service'
-import { setProductStatus } from '@/services/product-service'
-import { currentActor } from '@/stores/session-store'
+import { api } from '@/lib/api-client'
+import { categoryPath } from '@/lib/catalog'
+import { errorMessage } from '@/lib/errors'
+import { ApiError } from '@/lib/errors'
 import { BulkPriceDialog } from './bulk-price-dialog'
 import { ImportProductsDialog } from './import-products-dialog'
 
@@ -39,6 +38,7 @@ type SortKey = 'name' | 'sku' | 'stock' | 'price' | 'updated'
 export function ProductsPage() {
   const catalog = useCatalog()
   const router = useRouter()
+  const refresh = useRefreshData()
   const canEdit = usePermission('products.edit')
   const canEditPrice = usePermission('products.edit_price')
   const canViewCost = usePermission('products.view_cost')
@@ -69,8 +69,10 @@ export function ProductsPage() {
 
   const exportCsv = async (ids?: ID[]) => {
     try {
-      const text = await exportProductsCsv({ includeCost: canViewCost, productIds: ids })
-      downloadText(`products-${todayDateOnly()}.csv`, text)
+      // The server leaves purchase prices blank for roles that can't see cost.
+      const res = await fetch(`/api/products/export${ids?.length ? `?ids=${ids.join(',')}` : ''}`, { cache: 'no-store' })
+      if (!res.ok) throw new ApiError(res.status, 'export_failed', 'Export failed. Please try again.')
+      downloadText(`products-${todayDateOnly()}.csv`, await res.text())
     } catch (e) {
       toast.error(errorMessage(e))
     }
@@ -78,7 +80,8 @@ export function ProductsPage() {
 
   const changeStatus = async (p: Product, next: 'active' | 'archived') => {
     try {
-      await setProductStatus(currentActor(), p.id, next)
+      await api.patch(`/api/products/${p.id}`, { status: next })
+      await refresh()
       toast.success(`${p.name} ${next === 'archived' ? 'archived' : 'restored'}`)
     } catch (e) {
       toast.error(errorMessage(e))

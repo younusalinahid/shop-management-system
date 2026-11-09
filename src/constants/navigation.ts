@@ -116,21 +116,24 @@ export const NAV_GROUPS: NavGroup[] = [
 
 export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items)
 
-/**
- * Routes that are not sidebar entries. Record ids are created in the browser, so they cannot be
- * pre-rendered as /products/[id] in a static export; detail and edit pages take `?id=` instead.
- */
+/** Routes that are not sidebar entries, as path patterns (":id" matches one segment). */
 export const SUB_ROUTES: Array<{ path: string; permission: Permission }> = [
   { path: '/products/new', permission: 'products.edit' },
-  { path: '/products/view', permission: 'products.view' },
-  { path: '/products/edit', permission: 'products.edit' },
+  { path: '/products/:id/edit', permission: 'products.edit' },
+  { path: '/products/:id', permission: 'products.view' },
 ]
 
-export const productUrl = (id: string) => `/products/view?id=${encodeURIComponent(id)}`
-export const productEditUrl = (id: string) => `/products/edit?id=${encodeURIComponent(id)}`
+export const productUrl = (id: string) => `/products/${encodeURIComponent(id)}`
+export const productEditUrl = (id: string) => `/products/${encodeURIComponent(id)}/edit`
+
+const matches = (pattern: string, path: string) => {
+  const a = pattern.split('/')
+  const b = path.split('/')
+  return a.length === b.length && a.every((seg, i) => seg.startsWith(':') || seg === b[i])
+}
 
 /** Permission needed to open a pathname, or undefined for pages without a rule (e.g. 404). */
 export function routePermission(pathname: string): Permission | undefined {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
-  return (SUB_ROUTES.find((r) => r.path === path) ?? NAV_ITEMS.find((i) => i.path === path))?.permission
+  return (SUB_ROUTES.find((r) => matches(r.path, path)) ?? NAV_ITEMS.find((i) => i.path === path))?.permission
 }

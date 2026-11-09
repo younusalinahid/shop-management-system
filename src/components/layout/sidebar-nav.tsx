@@ -6,11 +6,11 @@ import { Store } from 'lucide-react'
 import { NAV_GROUPS } from '@/constants/navigation'
 import { can } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
-import { useSession } from '@/stores/session-store'
+import { useSessionUser } from '@/hooks/use-session'
 import { useSettings } from '@/hooks/use-settings'
 
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
-  const role = useSession((s) => s.user?.role)
+  const { role } = useSessionUser()
   const settings = useSettings()
   const pathname = usePathname()
   // A section stays highlighted on its sub-pages (/products/view, /products/edit, …).

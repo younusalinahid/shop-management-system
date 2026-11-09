@@ -1,7 +1,7 @@
 import { can, type Permission } from '@/lib/permissions'
-import { useSession } from '@/stores/session-store'
+import { useOptionalSessionUser } from './use-session'
 
+/** UI-side permission check (hides controls). The API re-checks every request. */
 export function usePermission(permission: Permission): boolean {
-  const role = useSession((s) => s.user?.role)
-  return can(role, permission)
+  return can(useOptionalSessionUser()?.role, permission)
 }

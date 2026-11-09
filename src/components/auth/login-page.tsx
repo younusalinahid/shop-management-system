@@ -1,24 +1,29 @@
 'use client'
 
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/shared/states'
-import { useSettings } from '@/hooks/use-settings'
+import type { UserRole } from '@/types/db'
+import { api } from '@/lib/api-client'
+import { errorMessage } from '@/lib/errors'
 import { ROLE_LABELS } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
-import { listActiveUsers, login } from '@/services/auth-service'
-import { errorMessage } from '@/services/errors'
-import { useSession } from '@/stores/session-store'
+
+interface LoginInfo {
+  shopName: string
+  users: Array<{ id: string; name: string; username: string; role: UserRole }>
+}
 
 export function LoginPage() {
-  const settings = useSettings()
-  const users = useLiveQuery(listActiveUsers, [])
-  const signIn = useSession((s) => s.signIn)
+  const router = useRouter()
+  const { data } = useQuery({ queryKey: ['login-info'], queryFn: () => api.get<LoginInfo>('/api/auth/users') })
+  const users = data?.users
   const [username, setUsername] = useState('')
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -35,7 +40,11 @@ export function LoginPage() {
     setBusy(true)
     setError(null)
     try {
-      signIn(await login(username, pin))
+      await api.post('/api/auth/login', { username, pin })
+      // The session cookie is set; load the app (server layouts read the cookie).
+      router.replace('/dashboard')
+      router.refresh()
+      return
     } catch (err) {
       setError(errorMessage(err))
       setPin('')
@@ -52,7 +61,7 @@ export function LoginPage() {
           <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Store className="size-5" aria-hidden />
           </div>
-          <CardTitle className="text-xl">{settings.shopName}</CardTitle>
+          <CardTitle className="text-xl">{data?.shopName ?? 'Sign in'}</CardTitle>
           <CardDescription>Choose your account and enter your PIN</CardDescription>
         </CardHeader>
         <CardContent>

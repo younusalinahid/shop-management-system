@@ -1,48 +1,43 @@
 # Database
 
-IndexedDB database `dokan-pos`, accessed through Dexie. The name predates the rename to "Shop Management System"
-and must not change: renaming it would hide every existing shop's data. The source of truth for indexes is `src/db/migrations.ts`.
-Entity types live in `src/types/db.ts`. Current schema version: **1**.
+PostgreSQL, accessed through Drizzle ORM. The source of truth is `src/server/db/schema.ts`; SQL migrations are
+generated into `drizzle/` and committed.
 
-## Migration process
+- **Production:** `DATABASE_URL` (Neon, Supabase, any Postgres). Use the pooled URL on serverless hosts.
+- **Local development:** no `DATABASE_URL` → PGlite (Postgres compiled to WebAssembly) in `./.data/pglite`.
+  Delete that folder to start over.
+- **Tests:** PGlite in memory; every test starts with empty tables.
 
-1. Never edit a shipped migration. Append `{ version: n + 1, stores: {...full spec...}, upgrade }` to `MIGRATIONS`.
-2. `upgrade(tx)` runs inside the version-change transaction. If it throws, the database stays on the old version.
-3. Only indexed fields appear in `stores`. New non-indexed fields need no migration. Readers must default them,
-   as `getSettings()` does by merging over `DEFAULT_SETTINGS`.
-4. Backups record `SCHEMA_VERSION`. A restore must reject backups from a newer version.
-5. Update this file.
+## Changing the schema
+
+1. Edit `src/server/db/schema.ts`.
+2. `npm run db:generate` → a new file in `drizzle/`. Review the SQL and commit it.
+3. Local PGlite applies it on the next start. For Postgres, `npm run db:migrate` (Vercel runs it in `vercel-build`).
+4. Never edit a migration that has been applied anywhere; add a new one.
 
 ## Conventions
 
-- Primary keys are client UUID strings, except singleton or reference rows: `settings.id = 'app'`,
-  `counters.id = 'sale' | …`, `main-register`, and `expcat-N`.
-- IndexedDB cannot index booleans, so filterable flags use `status` strings and `productUnits.isBase` uses 0/1.
-- `&field` marks a unique index. `[a+b]` marks a compound index.
+- Primary keys are UUIDs, except `settings.id = 'app'` and `counters.id = 'product' | 'barcode' | …`.
+- Money is BIGINT poisha; quantities are BIGINT base units. Both are read as JS numbers (well below 2^53).
+- Timestamps are TIMESTAMPTZ, converted to epoch milliseconds in the app (`timestampMs` custom type).
+- Names that must be unique are unique case-insensitively (`UNIQUE (lower(name))`).
+- Records with history are archived (`status`), never deleted.
 
-## Tables (v1)
+## Tables
 
-| Table | Key indexes | Notes |
+| Table | Constraints / indexes | Notes |
 | --- | --- | --- |
-| settings | id | Singleton `'app'` |
-| counters | id | Document-number sequences, incremented inside the document's transaction. Also `product` (auto SKU `P00001`) and `barcode` (in-store EAN-13 sequence) |
-| users | &username, role, status | PBKDF2 PIN hash + salt |
-| categories / brands | name, status (categories: parentId) | Archived, never deleted |
-| products | &sku, name, categoryId, brandId, status | Cached `stockQty` (base units) and `stockValue` (poisha) |
-| productUnits | productId, [productId+isBase] | `factor` = base units per unit; independent prices |
-| productBarcodes | &code, productId | Optional `unitId` lets a scan select a package unit |
-| productBatches | productId, [productId+expiryDate], expiryDate, status | FEFO; `9999-12-31` = no expiry |
-| customers / suppliers | name, phone, status | Cached `balance`, reconcilable from the ledger |
-| sales | &invoiceNo, &idempotencyKey, customerId, cashierId, shiftId, status, createdAt | |
-| saleItems | saleId, productId | Snapshots + `baseQty` + `batchAllocations` + `returnedBaseQty` |
-| heldSales | userId | Parked carts |
-| purchases / purchaseItems | &purchaseNo, &idempotencyKey, supplierId / purchaseId, productId, batchId | |
-| saleReturns / saleReturnItems | &returnNo, &idempotencyKey, saleId / returnId, saleItemId | |
-| purchaseReturns / purchaseReturnItems | &returnNo, &idempotencyKey, purchaseId / returnId, purchaseItemId | |
-| payments | &paymentNo, &idempotencyKey, [partyType+partyId], refType, refId, method, shiftId | In/out; reversals link ids |
-| expenseCategories / expenses | name, status / &expenseNo, categoryId, expenseDate | |
-| stockMovements | productId, [productId+createdAt], type, batchId, refId | Signed qty and value change, balance after |
-| cashRegisters / cashTransactions | status / registerId, shiftId, type, refId | |
-| shifts | userId, status, [userId+status] | |
-| auditLogs | userId, module, action, entityId, createdAt | Operational history, not tamper-proof |
-| financialLedger | entryId, account, [account+partyId], refType, refId | Double-entry lines; Σdebit = Σcredit per entryId |
+| settings | PK id | One row `'app'`, settings in `data` (JSONB), merged over defaults |
+| counters | PK id | Atomic `INSERT … ON CONFLICT DO UPDATE value + 1` |
+| users | UNIQUE username | PBKDF2 PIN hash + salt, role, status |
+| sessions | FK user (cascade) | `id` = SHA-256 of the cookie token; `expires_at` |
+| audit_logs | created_at, entity_id, (module, action) | Before/after as JSONB |
+| categories | UNIQUE lower(name), FK parent | Nested categories; archived, never deleted |
+| brands | UNIQUE lower(name) | Archived, never deleted |
+| products | UNIQUE sku, FK category/brand | Cached `stock_qty` (base units) and `stock_value` (poisha) |
+| product_units | UNIQUE (product, lower(name)); UNIQUE product WHERE is_base | `factor` = base units per unit; independent prices |
+| product_barcodes | UNIQUE code, FK product (cascade), FK unit (set null) | Optional unit: a scan selects that package |
+| product_batches | (product, expiry_date) | FEFO; `9999-12-31` = no expiry (Phase 3) |
+| stock_movements | (product, created_at), ref_id | Signed qty and value change, balance after (Phase 3) |
+
+Sales, purchases, returns, parties, payments, cash, shifts and the ledger are added by migrations in their phases.

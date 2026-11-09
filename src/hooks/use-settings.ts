@@ -1,10 +1,12 @@
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '@/db/database'
+import { useQuery } from '@tanstack/react-query'
 import type { AppSettings } from '@/types/db'
-import { DEFAULT_SETTINGS } from '@/services/settings-service'
+import { api } from '@/lib/api-client'
+import { DEFAULT_SETTINGS } from '@/lib/settings'
 
-/** Live settings row (re-renders when settings change). Falls back to defaults while loading. */
+export const settingsQuery = { queryKey: ['settings'], queryFn: () => api.get<AppSettings>('/api/settings') }
+
+/** Shop settings from GET /api/settings. Defaults (with updatedAt 0) while loading. */
 export function useSettings(): AppSettings {
-  const s = useLiveQuery(() => db.settings.get('app'), [])
-  return { ...DEFAULT_SETTINGS, updatedAt: 0, ...s }
+  const { data } = useQuery(settingsQuery)
+  return data ?? { ...DEFAULT_SETTINGS, updatedAt: 0 }
 }

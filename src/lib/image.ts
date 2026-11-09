@@ -1,6 +1,6 @@
 /**
  * Shrink a user-picked image to a small square-ish thumbnail data URL before storing it
- * in IndexedDB, so a phone photo doesn't add megabytes per product.
+ * in the database, so a phone photo doesn't add megabytes per product.
  */
 export async function resizeImageFile(file: File, maxSize = 320, quality = 0.85): Promise<string> {
   if (!file.type.startsWith('image/')) throw new Error('Choose an image file.')

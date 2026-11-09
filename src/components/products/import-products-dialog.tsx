@@ -1,3 +1,5 @@
+'use client'
+
 import { useState } from 'react'
 import { AlertTriangle, CheckCircle2, Download, FileUp } from 'lucide-react'
 import { toast } from 'sonner'
@@ -7,14 +9,20 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { downloadText } from '@/lib/csv'
-import { errorMessage } from '@/services/errors'
-import { importProducts, type ParsedImport, parseProductCsv, productCsvTemplate } from '@/services/product-csv-service'
-import { currentActor } from '@/stores/session-store'
+import { errorMessage } from '@/lib/errors'
+import { useRefreshData } from '@/hooks/use-catalog'
+import { api } from '@/lib/api-client'
+import { type ImportResult, type ParsedImport, parseProductCsv, productCsvTemplate } from '@/lib/product-csv'
 
-/** Two steps: pick a file and validate it (nothing written), then import all valid products in one transaction. */
+/**
+ * Two steps: pick a file and check it here (nothing sent yet), then POST it to /api/products/import,
+ * which validates again and imports all new products in one transaction.
+ */
 export function ImportProductsDialog({ onClose }: { onClose: () => void }) {
   const [fileName, setFileName] = useState('')
   const [parsed, setParsed] = useState<ParsedImport | null>(null)
+  const [csv, setCsv] = useState('')
+  const refresh = useRefreshData()
   const [busy, setBusy] = useState(false)
 
   const pick = async (file: File | undefined) => {
@@ -24,14 +32,17 @@ export function ImportProductsDialog({ onClose }: { onClose: () => void }) {
       setParsed({ products: [], errors: [{ line: 0, message: 'File is larger than 5 MB.' }] })
       return
     }
-    setParsed(parseProductCsv(await file.text()))
+    const text = await file.text()
+    setCsv(text)
+    setParsed(parseProductCsv(text))
   }
 
   const run = async () => {
     if (!parsed) return
     setBusy(true)
     try {
-      const res = await importProducts(currentActor(), parsed)
+      const res = await api.post<ImportResult>('/api/products/import', { csv })
+      await refresh()
       const extras = [
         res.skipped.length && `${res.skipped.length} skipped (SKU already exists)`,
         res.createdCategories && `${res.createdCategories} new categories`,

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useQuery } from '@tanstack/react-query'
 import { Archive, ArchiveRestore, Pencil, Plus, Search, Tags } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
@@ -18,23 +18,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { db } from '@/db/database'
 import type { Brand, Category, ID } from '@/types/db'
 import { usePermission } from '@/hooks/use-permission'
 import { formatDate } from '@/lib/datetime'
-import {
-  catalogEntrySchema,
-  categoryPath,
-  createBrand,
-  createCategory,
-  productCountsBy,
-  setBrandStatus,
-  setCategoryStatus,
-  updateBrand,
-  updateCategory,
-} from '@/services/catalog-service'
-import { errorMessage } from '@/services/errors'
-import { currentActor } from '@/stores/session-store'
+import { useRefreshData } from '@/hooks/use-catalog'
+import { api } from '@/lib/api-client'
+import { catalogEntrySchema, categoryPath } from '@/lib/catalog'
+import { errorMessage } from '@/lib/errors'
+
+interface ListResponse<T> {
+  items: T[]
+  productCounts: Record<ID, number>
+}
+const endpoint = (kind: 'category' | 'brand') => (kind === 'category' ? '/api/categories' : '/api/brands')
 
 type Kind = 'category' | 'brand'
 type Entry = Category | Brand
@@ -60,14 +56,15 @@ function CatalogEntriesPage({ kind }: { kind: Kind }) {
   const [status, setStatus] = useState<StatusFilter>('active')
   const [editing, setEditing] = useState<Entry | 'new' | null>(null)
 
-  const data = useLiveQuery(async () => {
-    const [rows, categories, counts] = await Promise.all([
-      kind === 'category' ? db.categories.toArray() : db.brands.toArray(),
-      db.categories.toArray(),
-      productCountsBy(kind === 'category' ? 'categoryId' : 'brandId'),
-    ])
-    return { rows: rows as Entry[], byId: new Map(categories.map((c) => [c.id, c])), counts }
-  }, [kind])
+  const refresh = useRefreshData()
+  const list = useQuery({ queryKey: [kind], queryFn: () => api.get<ListResponse<Entry>>(endpoint(kind)) })
+  // Category names are needed for "Parent › Child" labels and the parent picker.
+  const cats = useQuery({ queryKey: ['category'], queryFn: () => api.get<ListResponse<Category>>('/api/categories'), enabled: kind === 'category' })
+  const data = useMemo(() => {
+    if (!list.data || (kind === 'category' && !cats.data)) return undefined
+    const categories = cats.data?.items ?? []
+    return { rows: list.data.items, byId: new Map(categories.map((c) => [c.id, c])), counts: list.data.productCounts }
+  }, [list.data, cats.data, kind])
 
   const filtered = useMemo(() => {
     if (!data) return []
@@ -83,7 +80,8 @@ function CatalogEntriesPage({ kind }: { kind: Kind }) {
   const toggleStatus = async (row: Entry) => {
     const next = row.status === 'active' ? 'archived' : 'active'
     try {
-      await (kind === 'category' ? setCategoryStatus : setBrandStatus)(currentActor(), row.id, next)
+      await api.patch(`${endpoint(kind)}/${row.id}`, { status: next })
+      await refresh()
       toast.success(`${row.name} ${next === 'archived' ? 'archived' : 'restored'}`)
     } catch (e) {
       toast.error(errorMessage(e))
@@ -156,7 +154,7 @@ function CatalogEntriesPage({ kind }: { kind: Kind }) {
                       </span>
                     </TableCell>
                     <TableCell className="hidden max-w-sm truncate text-muted-foreground md:table-cell">{row.description}</TableCell>
-                    <TableCell className="text-right">{data.counts.get(row.id) ?? 0}</TableCell>
+                    <TableCell className="text-right">{data.counts[row.id] ?? 0}</TableCell>
                     <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDate(row.updatedAt)}</TableCell>
                     <TableCell>
                       {canEdit && (
@@ -173,7 +171,7 @@ function CatalogEntriesPage({ kind }: { kind: Kind }) {
                               }
                               title={`Archive ${row.name}?`}
                               description={`It will be hidden from pickers. Products keep it, and you can restore it any time.${
-                                data.counts.get(row.id) ? ` ${data.counts.get(row.id)} product(s) use it.` : ''
+                                data.counts[row.id] ? ` ${data.counts[row.id]} product(s) use it.` : ''
                               }`}
                               confirmLabel="Archive"
                               onConfirm={() => toggleStatus(row)}
@@ -208,6 +206,7 @@ function CatalogEntriesPage({ kind }: { kind: Kind }) {
 
 function EntryDialog({ kind, entry, categories, onClose }: { kind: Kind; entry: Entry | null; categories: Category[]; onClose: () => void }) {
   const copy = COPY[kind]
+  const refresh = useRefreshData()
   const [name, setName] = useState(entry?.name ?? '')
   const [description, setDescription] = useState(entry?.description ?? '')
   const [parentId, setParentId] = useState<ID | ''>((entry as Category | null)?.parentId ?? '')
@@ -237,10 +236,10 @@ function EntryDialog({ kind, entry, categories, onClose }: { kind: Kind; entry: 
     }
     setBusy(true)
     try {
-      const actor = currentActor()
-      const input = { name, description, parentId: parentId || undefined }
-      if (kind === 'category') await (entry ? updateCategory(actor, entry.id, input) : createCategory(actor, input))
-      else await (entry ? updateBrand(actor, entry.id, input) : createBrand(actor, input))
+      const input = { name, description, ...(kind === 'category' && parentId ? { parentId } : {}) }
+      if (entry) await api.put(`${endpoint(kind)}/${entry.id}`, input)
+      else await api.post(endpoint(kind), input)
+      await refresh()
       toast.success(entry ? 'Saved' : `${name.trim()} added`)
       onClose()
     } catch (err) {

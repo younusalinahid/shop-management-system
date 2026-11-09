@@ -1,16 +1,13 @@
 import type { NextConfig } from 'next'
 
 /**
- * Static export only: the app has no server. Every page is pre-rendered to HTML in `out/`
- * and all data lives in the browser's IndexedDB. Server features (API routes, Server Actions,
- * dynamic rendering, middleware) are intentionally unused and unavailable in this mode.
+ * Server-rendered Next.js app with Route Handlers under /api and PostgreSQL (see src/server/db).
+ * PGlite (local development database) ships WebAssembly, so it is loaded from node_modules at
+ * runtime instead of being bundled.
  */
 const nextConfig: NextConfig = {
-  output: 'export',
-  // /products is exported as products.html; static hosts and the service worker map clean URLs to it.
-  trailingSlash: false,
-  images: { unoptimized: true },
   reactStrictMode: true,
+  serverExternalPackages: ['@electric-sql/pglite'],
 }
 
 export default nextConfig

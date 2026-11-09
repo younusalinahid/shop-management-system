@@ -14,21 +14,22 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useOnline } from '@/hooks/use-online'
 import { ROLE_LABELS } from '@/lib/permissions'
-import { useSession } from '@/stores/session-store'
+import { useRouter } from 'next/navigation'
+import { useSessionUser } from '@/hooks/use-session'
+import { api } from '@/lib/api-client'
 import { type Theme, useThemeStore } from '@/stores/theme-store'
-import { writeAudit } from '@/services/audit-service'
 
 export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const online = useOnline()
-  const { user, signOut } = useSession()
+  const user = useSessionUser()
+  const router = useRouter()
   const { theme, setTheme } = useThemeStore()
   const ThemeIcon = theme === 'dark' ? Moon : theme === 'light' ? Sun : Monitor
 
   const handleSignOut = async () => {
-    if (user) {
-      await writeAudit({ id: user.id, name: user.name }, { action: 'user.logout', module: 'auth', entityId: user.id }).catch(() => {})
-    }
-    signOut()
+    await api.post('/api/auth/logout').catch(() => {})
+    router.replace('/login')
+    router.refresh()
   }
 
   return (
@@ -41,7 +42,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         className={`hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs sm:flex ${
           online ? 'bg-success/10 text-success' : 'bg-warning/15 text-warning'
         }`}
-        title={online ? 'Online. All data is still stored only on this device.' : 'Offline. Everything keeps working; data is stored on this device.'}
+        title={online ? 'Connected to the server.' : 'No internet connection. Changes cannot be saved until it is back.'}
       >
         {online ? <Wifi className="size-3.5" /> : <WifiOff className="size-3.5" />}
         {online ? 'Online' : 'Offline'}

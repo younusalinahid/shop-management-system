@@ -1,14 +1,14 @@
 /**
- * Entity types for every IndexedDB table.
+ * Domain entity types, shared by the API (server) and the UI (browser). Tables that exist so far are
+ * defined in src/server/db/schema.ts; the rest describe modules of later phases.
  *
  * Conventions (see docs/ARCHITECTURE.md):
- * - `ID` is a string UUID generated on the client (crypto.randomUUID).
+ * - `ID` is a string UUID.
  * - `Money` is an INTEGER amount in poisha (1 BDT = 100 poisha). Never a float.
  * - `BaseQty` is an INTEGER quantity in the product's base unit (piece, gram, ml).
- * - `Timestamp` is epoch milliseconds (number), so it can be indexed and range-queried.
+ * - `Timestamp` is epoch milliseconds (number); the database stores TIMESTAMPTZ.
  * - `DateOnly` is an ISO calendar date 'YYYY-MM-DD' (e.g. expiry dates), timezone-free.
- * - Booleans are NOT indexable in IndexedDB, so filterable flags use string enums
- *   (e.g. `status: 'active' | 'archived'`).
+ * - Records with history are archived via `status: 'active' | 'archived'`, never deleted.
  * - Document line items (sale/purchase/return items) store historical SNAPSHOTS of
  *   names, units, factors, prices and costs so later product edits never change history.
  */
@@ -61,7 +61,6 @@ export interface AppSettings {
   barcodeFormat: 'CODE128' | 'EAN13'
   autoBackupReminderDays: number
   lastBackupAt?: Timestamp
-  schemaVersion: number
   updatedAt: Timestamp
 }
 
@@ -138,8 +137,7 @@ export interface ProductUnit extends Timestamps {
   name: string
   symbol?: string
   factor: number
-  /** 1 | 0 rather than boolean so it can be indexed. */
-  isBase: 0 | 1
+  isBase: boolean
   canPurchase: boolean
   canSell: boolean
   retailPrice: Money

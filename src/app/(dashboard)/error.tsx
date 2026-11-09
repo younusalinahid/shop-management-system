@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { ErrorState } from '@/components/shared/states'
-import { errorMessage } from '@/services/errors'
+import { errorMessage } from '@/lib/errors'
 
 /** Catches a crash in one page; the sidebar and top bar stay usable. */
 export default function DashboardError({ error, retry }: { error: unknown; retry: () => void }) {

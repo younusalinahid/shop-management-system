@@ -6,3 +6,10 @@ next-env.d.ts
 coverage
 *.local
 .DS_Store
+# Local development database (PGlite)
+.data
+# Secrets
+.env
+.env*.local
+# Claude Code local settings (per machine)
+.claude/

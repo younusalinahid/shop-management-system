@@ -3,8 +3,8 @@
 import { useId, useMemo, useRef, useState } from 'react'
 import { Controller, useFieldArray, useForm, useWatch, type Control, type UseFormRegister } from 'react-hook-form'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Barcode as BarcodeIcon, ImagePlus, Info, Plus, Trash2, Wand2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { BarcodeSvg } from '@/components/shared/barcode-svg'
@@ -19,7 +19,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { productUrl } from '@/constants/navigation'
-import { db } from '@/db/database'
 import type { ID } from '@/types/db'
 import { usePermission } from '@/hooks/use-permission'
 import { useSettings } from '@/hooks/use-settings'
@@ -28,19 +27,12 @@ import { newId } from '@/lib/id'
 import { resizeImageFile } from '@/lib/image'
 import { formatMoney, moneyToInput, multiplyMoney, parseMoney } from '@/lib/money'
 import { BASE_UNIT_PRESETS, fromBaseQty, isValidFactor, MAX_FACTOR, PACKAGE_UNIT_SUGGESTIONS, toBaseQty } from '@/lib/units'
-import { categoryPath } from '@/services/catalog-service'
-import { errorMessage } from '@/services/errors'
-import {
-  BARCODE_RE,
-  createProduct,
-  detailToInput,
-  generateBarcode,
-  getProductDetail,
-  type ProductInput,
-  productHasHistory,
-  updateProduct,
-} from '@/services/product-service'
-import { currentActor } from '@/stores/session-store'
+import { useCatalog, useRefreshData } from '@/hooks/use-catalog'
+import { api } from '@/lib/api-client'
+import { categoryPath } from '@/lib/catalog'
+import { errorMessage } from '@/lib/errors'
+import { BARCODE_RE, detailToInput, type ProductDetail, type ProductInput } from '@/lib/product'
+import type { Product } from '@/types/db'
 
 // ---------------------------------------------------------------- form model
 
@@ -250,33 +242,26 @@ function toInput(v: Values): { input?: ProductInput; errors: FieldErrors } {
 
 // ---------------------------------------------------------------- page
 
-/** /products/edit?id=… */
-export function ProductEditPage() {
-  const id = useSearchParams().get('id')
-  if (!id) return <ErrorState title="No product selected" message="Open a product from the product list to edit it." />
-  return <ProductFormPage id={id} />
-}
-
 /** Add (no id) or edit a product. */
 export function ProductFormPage({ id }: { id?: ID }) {
   const settings = useSettings()
-  const loaded = useLiveQuery(async () => {
-    if (!id) return { input: null, locked: false }
-    const d = await getProductDetail(id)
-    return { input: d ? detailToInput(d) : null, locked: d ? await productHasHistory(id) : false, missing: !d }
-  }, [id])
+  const detail = useQuery({
+    queryKey: ['product', id],
+    queryFn: () => api.get<ProductDetail>(`/api/products/${id}`),
+    enabled: !!id,
+    // Don't refetch underneath an open form.
+    refetchOnWindowFocus: false,
+  })
 
   // updatedAt 0 = settings still loading; the form's initial tax rate comes from them.
-  if ((id && !loaded) || settings.updatedAt === 0) return <LoadingState />
-  if (id && loaded && 'missing' in loaded && loaded.missing) {
-    return <ErrorState title="Product not found" message="It may have been deleted." />
-  }
+  if ((id && detail.isPending) || settings.updatedAt === 0) return <LoadingState />
+  if (id && detail.isError) return <ErrorState title="Could not load the product" message={errorMessage(detail.error)} />
   return (
     <ProductForm
       key={id ?? 'new'}
       id={id}
-      initial={loaded?.input ? inputToValues(loaded.input) : blankValues(settings.defaultTaxRate)}
-      baseLocked={!!loaded?.locked}
+      initial={detail.data ? inputToValues(detailToInput(detail.data)) : blankValues(settings.defaultTaxRate)}
+      baseLocked={!!detail.data?.hasHistory}
     />
   )
 }
@@ -293,10 +278,9 @@ function ProductForm({ id, initial, baseLocked }: { id?: ID; initial: Values; ba
   const trackExpiry = useWatch({ control, name: 'trackExpiry' })
   const [rootError, setRootError] = useState<string | null>(null)
 
-  const catalog = useLiveQuery(async () => {
-    const [categories, brands] = await Promise.all([db.categories.toArray(), db.brands.toArray()])
-    return { categories, brands, byId: new Map(categories.map((c) => [c.id, c])) }
-  }, [])
+  const refresh = useRefreshData()
+  const catalogData = useCatalog()
+  const catalog = catalogData && { categories: catalogData.categories, brands: catalogData.brands, byId: catalogData.categoryById }
 
   const { factors } = useMemo(() => computeFactors(units), [units])
   const baseName = units[0]?.name || 'base unit'
@@ -311,8 +295,8 @@ function ProductForm({ id, initial, baseLocked }: { id?: ID; initial: Values; ba
       return
     }
     try {
-      const actor = currentActor()
-      const saved = id ? await updateProduct(actor, id, input) : await createProduct(actor, input)
+      const saved = id ? await api.put<Product>(`/api/products/${id}`, input) : await api.post<Product>('/api/products', input)
+      await refresh()
       toast.success(id ? 'Product saved' : `${saved.name} added`)
       router.push(productUrl(saved.id))
     } catch (e) {
@@ -516,7 +500,8 @@ function ProductForm({ id, initial, baseLocked }: { id?: ID; initial: Values; ba
                   disabled={barcodesArray.fields.length >= 50}
                   onClick={async () => {
                     try {
-                      const code = await generateBarcode(form.getValues('barcodes').map((b) => b.code.trim()))
+                      const exclude = form.getValues('barcodes').map((b) => b.code.trim())
+                      const { code } = await api.post<{ code: string }>('/api/barcodes/generate', { exclude })
                       barcodesArray.append({ code, unitId: '' })
                     } catch (e) {
                       toast.error(errorMessage(e))

@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { Archive, ArchiveRestore, ArrowLeft, Pencil, Printer, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { BarcodeSvg } from '@/components/shared/barcode-svg'
@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { productEditUrl } from '@/constants/navigation'
-import { db } from '@/db/database'
 import type { StockMovementType } from '@/types/db'
 import { usePermission } from '@/hooks/use-permission'
 import { useSettings } from '@/hooks/use-settings'
@@ -22,10 +21,12 @@ import { integerToDecimalString } from '@/lib/decimal'
 import { formatDateTime } from '@/lib/datetime'
 import { formatMoney } from '@/lib/money'
 import { formatBreakdown, formatQty } from '@/lib/units'
-import { categoryPath } from '@/services/catalog-service'
-import { errorMessage } from '@/services/errors'
-import { deleteProduct, getProductDetail, productHasHistory, setProductStatus } from '@/services/product-service'
-import { currentActor } from '@/stores/session-store'
+import { useRefreshData } from '@/hooks/use-catalog'
+import { api } from '@/lib/api-client'
+import { categoryPath } from '@/lib/catalog'
+import type { ProductDetail } from '@/lib/product'
+import type { Category } from '@/types/db'
+import { errorMessage } from '@/lib/errors'
 import { stockLabel, Thumb } from './products-page'
 
 const MOVEMENT_LABELS: Record<StockMovementType, string> = {
@@ -45,34 +46,32 @@ const MOVEMENT_LABELS: Record<StockMovementType, string> = {
   transfer_out: 'Transfer out',
 }
 
-export function ProductDetailPage() {
-  const id = useSearchParams().get('id') ?? ''
+export function ProductDetailPage({ id }: { id: string }) {
   const router = useRouter()
+  const refresh = useRefreshData()
   const settings = useSettings()
   const canEdit = usePermission('products.edit')
   const canViewCost = usePermission('products.view_cost')
 
-  const data = useLiveQuery(async () => {
-    const detail = await getProductDetail(id)
-    if (!detail) return { detail: null }
-    const [categories, hasHistory, movements] = await Promise.all([
-      db.categories.toArray(),
-      productHasHistory(id),
-      db.stockMovements.where('[productId+createdAt]').between([id, 0], [id, Infinity]).reverse().limit(20).toArray(),
-    ])
-    return { detail, categoryLabel: categoryPath(detail.product.categoryId, new Map(categories.map((c) => [c.id, c]))), hasHistory, movements }
-  }, [id])
+  const detail = useQuery({ queryKey: ['product', id], queryFn: () => api.get<ProductDetail>(`/api/products/${id}`) })
+  const cats = useQuery({ queryKey: ['category'], queryFn: () => api.get<{ items: Category[] }>('/api/categories') })
 
-  if (!data) return <LoadingState />
-  if (!data.detail) return <ErrorState title="Product not found" message="It may have been deleted." />
+  if (detail.isPending) return <LoadingState />
+  if (detail.isError) return <ErrorState title="Could not load the product" message={errorMessage(detail.error)} onRetry={() => void detail.refetch()} />
 
-  const { product: p, units, barcodes, brand } = data.detail
+  const data = {
+    hasHistory: detail.data.hasHistory,
+    movements: detail.data.recentMovements,
+    categoryLabel: categoryPath(detail.data.product.categoryId, new Map((cats.data?.items ?? []).map((c) => [c.id, c]))),
+  }
+  const { product: p, units, barcodes, brand } = detail.data
   const low = p.minStockQty > 0 && p.stockQty <= p.minStockQty
   const unitName = (unitId?: string) => units.find((u) => u.id === unitId)?.name ?? p.baseUnitName
 
   const changeStatus = async (next: 'active' | 'archived') => {
     try {
-      await setProductStatus(currentActor(), p.id, next)
+      await api.patch(`/api/products/${p.id}`, { status: next })
+      await refresh()
       toast.success(next === 'archived' ? 'Product archived' : 'Product restored')
     } catch (e) {
       toast.error(errorMessage(e))
@@ -123,7 +122,8 @@ export function ProductDetailPage() {
                     destructive
                     onConfirm={async () => {
                       try {
-                        await deleteProduct(currentActor(), p.id)
+                        await api.delete(`/api/products/${p.id}`)
+                        await refresh()
                         toast.success('Product deleted')
                         router.push('/products')
                       } catch (e) {
@@ -254,7 +254,7 @@ export function ProductDetailPage() {
                   <TableCell className="font-medium">
                     {u.name}
                     {u.symbol && <span className="text-muted-foreground"> ({u.symbol})</span>}
-                    {u.isBase === 1 && (
+                    {u.isBase && (
                       <Badge variant="outline" className="ml-2">
                         Base
                       </Badge>

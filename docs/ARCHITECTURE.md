@@ -2,50 +2,82 @@
 
 ## Stack
 
-Next.js 16 (App Router, `output: 'export'`) · React 19 · TypeScript 5.9 · Tailwind CSS 4 + shadcn/ui (Radix) · Lucide · Dexie 4 (IndexedDB) ·
-Zustand · React Hook Form + Zod · Recharts · Workbox (generated after build) · Vitest + RTL + fake-indexeddb.
+Next.js 16 (App Router, server-rendered) · React 19 · TypeScript 5.9 · PostgreSQL via Drizzle ORM (PGlite for local
+development and tests) · Route Handlers as a JSON API · TanStack Query (client data cache) · Tailwind CSS 4 +
+shadcn/ui (Radix) · Lucide · Zustand (theme only) · React Hook Form + Zod · Recharts · Vitest + Testing Library.
 
 Versions are pinned to proven majors on purpose, not the newest ones.
 
-## Folder layout
+## Request flow
 
-Standard Next.js layout with a `src/` folder: routes live in `src/app/`, everything else beside it.
+```
+Browser page (client component)
+  └─ api.get/post/... (src/lib/api-client.ts)     fetch('/api/…'), visible in the Network tab
+      └─ Route Handler (src/app/api/**/route.ts)  requireActor(permission) → readBody(zodSchema)
+          └─ Service (src/server/services/*.ts)   business rules, assertCan(), one DB transaction
+              └─ Drizzle → PostgreSQL               constraints are the last line of defence
+```
+
+Pages fetch with TanStack Query and call `useRefreshData()` after a successful write, so every list refreshes.
+Server layouts read the session cookie and redirect before anything renders (`src/server/auth/entry.ts`).
+
+## Folder layout
 
 ```
 src/
   app/                    Routes only (Next.js App Router)
-    layout.tsx            Root layout: metadata, theme script, AppBoot
-    page.tsx              "/" redirects to /dashboard
-    not-found.tsx         404 page
-    (dashboard)/          Route group for signed-in pages (no URL segment)
-      layout.tsx          App shell + route permission check
-      error.tsx           Error boundary; the sidebar stays usable
-      dashboard/ products/ categories/ brands/ barcodes/ settings/   One page.tsx each
+    layout.tsx            Root layout: metadata, theme script, client Providers
+    page.tsx              "/" redirects to setup, login or /dashboard
+    (auth)/login, setup   Public pages; redirect away when they don't apply
+    (dashboard)/          Signed-in pages; layout.tsx verifies the session on the server
+      products/[id], products/[id]/edit, …
       [module]/           "Not built yet" pages for later-phase modules
+      error.tsx           Error boundary; the sidebar stays usable
+    api/                  JSON API (Route Handlers)
+  server/                 Server-only code (imports 'server-only')
+    db/schema.ts          Drizzle schema = source of truth for tables
+    db/index.ts           Connection: DATABASE_URL → postgres.js, else PGlite
+    auth/                 Cookie sessions, page redirects
+    services/             Business logic per module (auth, settings, catalog, product, product-csv, audit, counter)
+    http.ts               Route Handler wrapper: auth, body parsing, one error format
   components/
-    ui/                   shadcn/ui primitives (generated; edit sparingly)
-    layout/               AppBoot, app shell, sidebar, top bar
+    ui/                   shadcn/ui primitives
+    layout/               Providers, app shell, sidebar, top bar
     shared/               Reusable app components (page header, states, dialogs, barcode, print)
-    <module>/             Page components per module (products, catalog, barcodes, …)
+    <module>/             Page components per module
+  lib/                    Shared by browser and server: money/decimal math, units, barcodes, CSV, dates,
+                          permissions, validation schemas (product.ts, catalog.ts), API client
+  hooks/                  React hooks (session, settings, catalog, permissions, online status)
   constants/              Sidebar navigation, route permissions, URL helpers
-  db/                     Dexie database, migrations (schema), default-data bootstrap
-  types/                  Entity types (db.ts)
-  hooks/                  React hooks (live settings, catalog, permissions, online status)
-  lib/                    Pure helpers: exact money/decimal math, units, barcodes, CSV, dates, permissions
-  services/               Business logic. UI never writes to the DB directly for business operations.
-  stores/                 Zustand: session and theme only
-tests/                    Vitest suites mirroring src/ (+ setup.ts with fake-indexeddb)
-scripts/generate-sw.mjs   Builds the offline service worker after `next build`
-public/                   Icons and manifest.webmanifest
+  types/                  Domain entity types (db.ts)
+  stores/                 Zustand: theme
+drizzle/                  Generated SQL migrations (commit them)
+tests/                    Vitest: lib, services, API routes, UI (all on in-memory Postgres)
 ```
 
-File names are kebab-case (`product-service.ts`), the usual Next.js/shadcn convention.
+File names are kebab-case (`product.ts`, `products-page.tsx`), the usual Next.js/shadcn convention.
+
+## API conventions
+
+- Every route is wrapped in `route()` (`src/server/http.ts`). Errors are `{ error: { code, message, issues? } }` with
+  401 (not signed in), 403 (role), 404, 409 (duplicate / unique violation), 400 (validation) or 500.
+- `requireActor(...permissions)` loads the session user and checks the role. Services check again with `assertCan`,
+  so a service can never be called without a permission check.
+- Input is validated with the same Zod schema the form uses (`src/lib/product.ts`, `src/lib/catalog.ts`).
+- Cost data (purchase prices, stock value) is removed from responses for roles without `products.view_cost`.
+
+## Auth
+
+First run: `/setup` creates the owner account and shop details (`POST /api/setup`, refused once any user exists).
+After that, `/login` (`POST /api/auth/login`). A session is a random 32-byte token in an httpOnly, SameSite=Lax
+cookie (`pos_session`, 12 hours); the `sessions` table stores only its SHA-256. PINs are PBKDF2-SHA256 with a
+per-user salt. Logout deletes the session row.
 
 ## Core rules
 
-**Money.** Stored as integer **poisha** (`৳1 = 100`). Parsing, multiplication and percentages use BigInt-backed
-exact helpers (`lib/decimal.ts`, `lib/money.ts`). Floats are never used for totals. `allocate()` splits invoice
-discounts and extra costs across lines so the parts sum exactly.
+**Money.** Stored as integer **poisha** (`৳1 = 100`), BIGINT in Postgres. Parsing, multiplication and percentages
+use BigInt-backed exact helpers (`lib/decimal.ts`, `lib/money.ts`). Floats are never used for totals. `allocate()`
+splits invoice discounts and extra costs across lines so the parts sum exactly.
 
 **Quantities.** Every product has one base unit, and the smallest practical one is chosen (piece, gram, ml).
 Stock is an **integer in base units**. Every other unit has an integer `factor` (base units per unit; 1 Sack = 25000).
@@ -59,26 +91,26 @@ price is not derived from the piece price.
 COGS for a sale is `stockValue × qty / stockQty`. Storing the total instead of a per-unit average avoids precision
 loss for gram-level units. The batch table keeps the design open to FIFO later.
 
-**Atomicity.** Any operation that touches several tables (sale, purchase, return, payment, adjustment) runs inside
-one `db.transaction('rw', …)`. If anything throws, IndexedDB rolls back every write. Inside a transaction, never
-`await` non-IndexedDB async work (fetch, crypto.subtle, timers): do it before the transaction starts.
+**Atomicity.** Any operation that touches several tables runs inside one `db.transaction(async (tx) => …)` and
+passes `tx` to every helper and to `writeAudit`. If anything throws, Postgres rolls back every write. Rows that two
+requests could change at once are locked with `SELECT … FOR UPDATE` (see `updateProduct`).
 
-**Append-only history.** Stock changes always write a `stockMovements` row. Money changes always write `payments`,
-`cashTransactions` and balanced double-entry `financialLedger` lines. Completed records are never deleted.
-Cancellations write reversal entries instead.
+**Append-only history.** Stock changes always write a `stock_movements` row. Money changes (later phases) always
+write payments, cash transactions and balanced double-entry ledger lines. Completed records are never deleted;
+cancellations write reversal entries.
 
 **Snapshots.** Sale, purchase and return items copy the product name, unit name, factor, price and cost at that
 moment. Editing a product never changes past invoices.
 
-**Duplicate prevention.** Each submission carries a client `idempotencyKey`, and the key has a unique index.
-A double-click or retry fails with `ConstraintError` instead of creating a second sale.
+**Duplicate prevention.** Each submission will carry a client `idempotencyKey` with a unique index, so a
+double-click or retry gets 409 instead of a second sale.
 
-**Dates.** Stored as epoch ms. "Today" and day boundaries are computed in the shop timezone (Asia/Dhaka)
-regardless of device timezone. Expiry dates are `YYYY-MM-DD` strings. A product with no expiry uses `9999-12-31`,
-so FEFO ordering works on a single compound index.
+**Dates.** Stored as TIMESTAMPTZ, handled as epoch ms in the app. "Today" and day boundaries are computed in the
+shop timezone (Asia/Dhaka). Expiry dates are `DATE`. A product with no expiry uses `9999-12-31`, so FEFO ordering
+works on one index.
 
-**Actors.** Services take an explicit `Actor` (`{ id, name }`) for audit records instead of reading global state.
-This keeps them testable.
+**Actors.** Services take the database and an explicit `Actor` (`{ id, name, role }`) instead of reading global
+state. This keeps them testable.
 
 ## Catalog (Phase 2)
 
@@ -90,60 +122,29 @@ returns) must convert quantities through this module, never with their own arith
 **Defining units.** In the product form each non-base unit is entered relative to an earlier unit
 ("1 Carton = 24 × Packet"), and the form stores the resulting base factor (288). Only the base factor is persisted.
 Once a product has stock or any history, its base unit can be renamed but not replaced (`productHasHistory`).
+The database also enforces exactly one base unit and unique unit names per product.
 
 **Prices per unit.** A price that is not a whole poisha per base unit (৳78/KG is 7.8 poisha per gram) cannot be
 stored on the gram row. That is the reason KG and Sack carry their own prices: sell in the unit whose price you set.
 
-**Products are archived, not deleted.** `deleteProduct` only succeeds for products with no stock, movements,
-batches or document lines. Anything else is archived. Categories and brands are always archived, never deleted.
+**Products are archived, not deleted.** `DELETE /api/products/:id` only succeeds for products with no stock,
+movements or batches. Anything else is archived. Categories and brands are always archived, never deleted.
 
-**Barcodes.** Unique across all products (`&code`). A barcode may point at a unit, so scanning a carton code selects
-Carton. Generated codes are EAN-13 with prefix `2` (reserved for in-store use, so no clash with manufacturer codes).
+**Barcodes.** Unique across all products. A barcode may point at a unit, so scanning a carton code selects Carton.
+Generated codes are EAN-13 with prefix `2` (reserved for in-store use, so no clash with manufacturer codes).
 `lib/barcode.ts` encodes EAN-13 and Code 128 to SVG with no extra dependency. Labels print through `PrintPortal`,
 which hides the app while printing and sets `@page` for the label size.
 
-**Permissions in services.** `requirePermission(actor, …)` reloads the user and re-checks the role. Editing products
-needs `products.edit`, and any price change also needs `products.edit_price` (every change is audit-logged as
-`product.price_change`). Purchase prices are hidden from roles without `products.view_cost`, including in CSV
-exports.
+**Price permissions.** Editing products needs `products.edit`, and any price change also needs
+`products.edit_price` (every change is audit-logged as `product.price_change`).
 
-**CSV** (`services/product-csv-service.ts`). One row per unit, grouped by SKU. Import validates the whole file first
-and writes nothing if any row is wrong. It then inserts every new product in one transaction, skips existing SKUs
-(never overwrites) and creates missing categories and brands by name. Exports carry a UTF-8 BOM (Excel) and guard
-against spreadsheet formula injection.
+**CSV** (`lib/product-csv.ts` parses, `server/services/product-csv.ts` imports/exports). One row per unit, grouped by
+SKU. The import dialog checks the file in the browser first; `POST /api/products/import` validates again and writes
+nothing if any row is wrong. It then inserts every new product in one transaction, skips existing SKUs (never
+overwrites) and creates missing categories and brands by name. Exports carry a UTF-8 BOM (Excel) and guard against
+spreadsheet formula injection.
 
-**Dexie gotcha.** A `db.transaction(..., scope)` callback must be an `async` function when the work inside awaits
-native promises (e.g. calls another `async` helper). A plain arrow that returns a promise lets the transaction commit
-early (`PrematureCommitError`).
+## Modules from later phases
 
-## Next.js without a server
-
-The app uses Next.js purely as a client-side React framework and exports static HTML (`out/`).
-
-- **No server features.** No API routes, Server Actions, middleware or dynamic rendering, and `output: 'export'`
-  rejects them at build time. All business data stays in IndexedDB.
-- **`AppBoot`** (client component in the root layout) opens the database, then shows setup, login or the page.
-  During the build prerender it only renders a loading state, so no page touches IndexedDB on the server.
-- **Client components.** Every page component that uses Dexie, Zustand or browser APIs starts with `'use client'`.
-  Route files under `app/` stay thin server components that render them.
-- **No `/products/[id]`.** Static export must know every dynamic path at build time, but record ids are created in
-  the browser. Detail and edit pages use query strings (`/products/view?id=…`, built with `productUrl()`), read
-  with `useSearchParams` inside a `<Suspense>` boundary.
-- **Modules from later phases** are served by `app/(dashboard)/[module]`, which pre-renders one "not built yet" page
-  per sidebar entry. When a module is implemented, give it its own folder and add its path to `BUILT` in that file.
-  (In dev, a mistyped single-segment URL logs a "missing param" error from this route; it still returns 404.)
-- **Route permissions** are checked in `app/(dashboard)/layout.tsx` via `routePermission()`. Services re-check them.
-
-## Offline / PWA
-
-`scripts/generate-sw.mjs` runs after `next build` and writes `out/sw.js` with Workbox. It precaches every exported
-page, RSC payload and asset, maps `/products` to `products.html`, and ignores query strings, so
-`/products/view?id=…` works offline. `ReloadPrompt` registers it in production builds only. Updates use **prompt mode**:
-the user chooses when to reload, so an update never interrupts a sale. All data is local, so being offline changes
-nothing functionally.
-
-## Auth
-
-On first run the app asks for the shop details and creates an owner account. After that, users sign in with a PIN.
-The session lives in `sessionStorage`, so closing the app requires the PIN again. Permissions are defined in
-`lib/permissions.ts`; routes and navigation are filtered by role. See the README for the security limitations.
+`app/(dashboard)/[module]` renders a "not built yet" page for each sidebar entry that has no folder of its own.
+When a module is implemented, give it its own route folder and add its path to `BUILT` in that file.

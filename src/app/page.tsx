@@ -1,12 +1,8 @@
-'use client'
+import { redirect } from 'next/navigation'
+import { requirePageUser } from '@/server/auth/entry'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { LoadingState } from '@/components/shared/states'
-
-/** "/" has no content of its own; static export has no server redirects, so redirect on the client. */
-export default function HomePage() {
-  const router = useRouter()
-  useEffect(() => router.replace('/dashboard'), [router])
-  return <LoadingState />
+/** "/" sends visitors to setup, login or the dashboard. */
+export default async function HomePage() {
+  await requirePageUser()
+  redirect('/dashboard')
 }

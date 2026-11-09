@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, type Control, type FieldPath } from 'react-hook-form'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { PageHeader } from '@/components/shared/page-header'
@@ -17,9 +17,10 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import type { AppSettings } from '@/types/db'
 import { integerToDecimalString, mulToInteger, parseDecimal } from '@/lib/decimal'
-import { errorMessage } from '@/services/errors'
-import { getSettings, updateSettings } from '@/services/settings-service'
-import { currentActor } from '@/stores/session-store'
+import { errorMessage } from '@/lib/errors'
+import { useRefreshData } from '@/hooks/use-catalog'
+import { settingsQuery } from '@/hooks/use-settings'
+import { api } from '@/lib/api-client'
 
 const percent = z
   .string()
@@ -75,7 +76,8 @@ function toValues(s: AppSettings): Values {
 }
 
 export function SettingsPage() {
-  const settings = useLiveQuery(getSettings, [])
+  const { data: settings } = useQuery(settingsQuery)
+  const refresh = useRefreshData()
   const form = useForm<Values, unknown, Parsed>({ resolver: zodResolver(schema) })
 
   useEffect(() => {
@@ -87,12 +89,13 @@ export function SettingsPage() {
 
   const onSubmit = async (v: Parsed) => {
     try {
-      const next = await updateSettings(currentActor(), {
+      const next = await api.patch<AppSettings>('/api/settings', {
         ...v,
         receiptWidthMm: Number(v.receiptWidthMm) as AppSettings['receiptWidthMm'],
         defaultTaxRate: mulToInteger(v.defaultTaxRate || '0', 100, 'exact'),
       })
       form.reset(toValues(next))
+      await refresh()
       toast.success('Settings saved')
     } catch (e) {
       toast.error(errorMessage(e))

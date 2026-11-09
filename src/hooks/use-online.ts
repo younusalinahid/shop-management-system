@@ -9,7 +9,7 @@ function subscribe(cb: () => void) {
   }
 }
 
-/** Network status. The app works fully offline; this is informational only. */
+/** Network status. The app needs the server, so the top bar warns when the connection drops. */
 export function useOnline(): boolean {
   return useSyncExternalStore(subscribe, () => navigator.onLine, () => true)
 }

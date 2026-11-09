@@ -1,11 +1,7 @@
-import { Suspense } from 'react'
 import { BarcodesPage } from '@/components/barcodes/barcodes-page'
 
-// Reads ?product= on the client; static export requires a Suspense boundary around useSearchParams.
-export default function Page() {
-  return (
-    <Suspense>
-      <BarcodesPage />
-    </Suspense>
-  )
+/** /barcodes?product=<id> pre-fills the label queue with that product's barcodes. */
+export default async function Page({ searchParams }: { searchParams: Promise<{ product?: string }> }) {
+  const { product } = await searchParams
+  return <BarcodesPage productId={product} />
 }
