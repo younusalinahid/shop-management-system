@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Barcode as BarcodeIcon, Minus, Plus, Printer, ScanLine, Trash2, Wand2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { BarcodeSvg } from '@/components/shared/barcode-svg'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
@@ -30,9 +31,9 @@ interface LabelItem {
 }
 
 const LABEL_PRESETS = {
-  'roll-38x25': { label: '38 × 25 mm roll', w: 38, h: 25, sheet: false },
-  'roll-50x30': { label: '50 × 30 mm roll', w: 50, h: 30, sheet: false },
-  'a4-3x8': { label: 'A4 sheet, 3 × 8 (64 × 34 mm)', w: 64, h: 34, sheet: true },
+  'roll-38x25': { w: 38, h: 25, sheet: false },
+  'roll-50x30': { w: 50, h: 30, sheet: false },
+  'a4-3x8': { w: 64, h: 34, sheet: true },
 } as const
 type PresetKey = keyof typeof LABEL_PRESETS
 
@@ -41,6 +42,7 @@ export function BarcodesPage({ productId }: { productId?: string }) {
   const settings = useSettings()
   const canEdit = usePermission('products.edit')
   const refresh = useRefreshData()
+  const t = useTranslations('barcodes')
   const [items, setItems] = useState<LabelItem[]>([])
   const [preset, setPreset] = useState<PresetKey>('roll-38x25')
   const [showPrice, setShowPrice] = useState(true)
@@ -69,7 +71,7 @@ export function BarcodesPage({ productId }: { productId?: string }) {
     try {
       const { added: n } = await api.post<{ added: number }>('/api/barcodes/assign', { productIds: missing.map((p) => p.id) })
       await refresh()
-      toast.success(`${n} barcode(s) generated`)
+      toast.success(t('generated', { count: n }))
     } catch (e) {
       toast.error(errorMessage(e))
     }
@@ -80,15 +82,15 @@ export function BarcodesPage({ productId }: { productId?: string }) {
 
   return (
     <>
-      <PageHeader title="Barcode Management" description="Test your scanner, generate in-store barcodes and print labels." />
+      <PageHeader icon={BarcodeIcon} title={t('title')} description={t('description')} />
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="space-y-6">
           <ScanTester />
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Products without a barcode</CardTitle>
+              <CardTitle className="text-base">{t('missingTitle')}</CardTitle>
               <CardDescription>
-                {missing.length === 0 ? 'Every active product has at least one barcode.' : `${missing.length} active product(s) have no barcode.`}
+                {missing.length === 0 ? t('noneMissing') : t('missingCount', { count: missing.length })}
               </CardDescription>
             </CardHeader>
             {missing.length > 0 && canEdit && (
@@ -97,17 +99,17 @@ export function BarcodesPage({ productId }: { productId?: string }) {
                   {missing.slice(0, 50).map((p) => (
                     <li key={p.id}>{p.name}</li>
                   ))}
-                  {missing.length > 50 && <li>…and {missing.length - 50} more</li>}
+                  {missing.length > 50 && <li>{t('andMore', { count: missing.length - 50 })}</li>}
                 </ul>
                 <ConfirmDialog
                   trigger={
                     <Button variant="outline" size="sm">
-                      <Wand2 /> Generate for all {missing.length}
+                      <Wand2 /> {t('generateAll', { count: missing.length })}
                     </Button>
                   }
-                  title="Generate in-store barcodes?"
-                  description="Each listed product gets a unique EAN-13 code starting with 2 (reserved for in-store use, so it never clashes with manufacturer barcodes)."
-                  confirmLabel="Generate"
+                  title={t('generateConfirmTitle')}
+                  description={t('generateConfirmText')}
+                  confirmLabel={t('generate')}
                   onConfirm={generateMissing}
                 />
               </CardContent>
@@ -117,13 +119,13 @@ export function BarcodesPage({ productId }: { productId?: string }) {
 
         <Card className="xl:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Print labels</CardTitle>
-            <CardDescription>Add barcodes, set copies and print. Prices printed are the retail price of the barcode&apos;s unit.</CardDescription>
+            <CardTitle className="text-base">{t('printTitle')}</CardTitle>
+            <CardDescription>{t('printDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <BarcodePicker index={index} onPick={add} />
             {items.length === 0 ? (
-              <EmptyState icon={BarcodeIcon} title="No labels queued" description="Search for a product above to add its barcode." />
+              <EmptyState icon={BarcodeIcon} title={t('noLabels')} description={t('noLabelsText')} />
             ) : (
               <ul className="divide-y rounded-md border">
                 {items.map((it) => {
@@ -141,7 +143,7 @@ export function BarcodesPage({ productId }: { productId?: string }) {
                         <Button
                           variant="outline"
                           size="icon-sm"
-                          aria-label="Fewer copies"
+                          aria-label={t('fewerCopies')}
                           onClick={() => setItems((l) => l.map((i) => (i.barcodeId === it.barcodeId ? { ...i, copies: Math.max(1, i.copies - 1) } : i)))}
                         >
                           <Minus />
@@ -149,17 +151,17 @@ export function BarcodesPage({ productId }: { productId?: string }) {
                         <Input
                           className="h-8 w-16 text-center"
                           inputMode="numeric"
-                          aria-label="Copies"
+                          aria-label={t('copies')}
                           value={it.copies}
                           onChange={(e) => {
                             const n = Math.min(500, Math.max(1, Number.parseInt(e.target.value, 10) || 1))
                             setItems((l) => l.map((i) => (i.barcodeId === it.barcodeId ? { ...i, copies: n } : i)))
                           }}
                         />
-                        <Button variant="outline" size="icon-sm" aria-label="More copies" onClick={() => add(it.barcodeId)}>
+                        <Button variant="outline" size="icon-sm" aria-label={t('moreCopies')} onClick={() => add(it.barcodeId)}>
                           <Plus />
                         </Button>
-                        <Button variant="ghost" size="icon-sm" aria-label="Remove" onClick={() => setItems((l) => l.filter((i) => i.barcodeId !== it.barcodeId))}>
+                        <Button variant="ghost" size="icon-sm" aria-label={t('remove')} onClick={() => setItems((l) => l.filter((i) => i.barcodeId !== it.barcodeId))}>
                           <Trash2 />
                         </Button>
                       </div>
@@ -171,43 +173,43 @@ export function BarcodesPage({ productId }: { productId?: string }) {
 
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
-                <Label>Label size</Label>
+                <Label>{t('labelSize')}</Label>
                 <Select value={preset} onValueChange={(v) => setPreset(v as PresetKey)}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(LABEL_PRESETS).map(([k, v]) => (
+                    {Object.keys(LABEL_PRESETS).map((k) => (
                       <SelectItem key={k} value={k}>
-                        {v.label}
+                        {t(`preset.${k}`)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <label className="flex items-center gap-2 self-end pb-2 text-sm">
-                <Checkbox checked={showPrice} onCheckedChange={(v) => setShowPrice(v === true)} /> Show price
+                <Checkbox checked={showPrice} onCheckedChange={(v) => setShowPrice(v === true)} /> {t('showPrice')}
               </label>
               <label className="flex items-center gap-2 self-end pb-2 text-sm">
-                <Checkbox checked={showShop} onCheckedChange={(v) => setShowShop(v === true)} /> Show shop name
+                <Checkbox checked={showShop} onCheckedChange={(v) => setShowShop(v === true)} /> {t('showShop')}
               </label>
             </div>
 
             {labels.length > 0 && (
               <>
                 <div>
-                  <p className="mb-2 text-sm text-muted-foreground">Preview ({labels.length} label{labels.length === 1 ? '' : 's'})</p>
+                  <p className="mb-2 text-sm text-muted-foreground">{t('preview', { count: labels.length })}</p>
                   <div className="flex flex-wrap gap-2 rounded-md bg-muted p-3">
                     {labels.slice(0, 12).map((row, i) => (
                       <div key={i} className="bg-white shadow-sm" style={{ width: `${size.w}mm`, height: `${size.h}mm` }}>
                         <LabelContent row={row} showPrice={showPrice} shopName={showShop ? settings.shopName : undefined} format={settings.barcodeFormat} />
                       </div>
                     ))}
-                    {labels.length > 12 && <p className="self-center text-sm text-muted-foreground">+{labels.length - 12} more</p>}
+                    {labels.length > 12 && <p className="self-center text-sm text-muted-foreground">{t('plusMore', { count: labels.length - 12 })}</p>}
                   </div>
                 </div>
                 <Button onClick={printNow}>
-                  <Printer /> Print {labels.length} label{labels.length === 1 ? '' : 's'}
+                  <Printer /> {t('printCount', { count: labels.length })}
                 </Button>
               </>
             )}
@@ -280,6 +282,7 @@ function LabelContent({ row, showPrice, shopName, format }: { row: IndexRow; sho
 }
 
 function BarcodePicker({ index, onPick }: { index: Map<ID, IndexRow>; onPick: (barcodeId: ID) => void }) {
+  const t = useTranslations('barcodes')
   const [q, setQ] = useState('')
   const matches = useMemo(() => {
     const s = q.trim().toLowerCase()
@@ -293,7 +296,7 @@ function BarcodePicker({ index, onPick }: { index: Map<ID, IndexRow>; onPick: (b
   return (
     <div className="relative">
       <Input
-        placeholder="Add label: search product, SKU or scan barcode…"
+        placeholder={t('pickerPlaceholder')}
         value={q}
         onChange={(e) => setQ(e.target.value)}
         onKeyDown={(e) => {
@@ -308,7 +311,7 @@ function BarcodePicker({ index, onPick }: { index: Map<ID, IndexRow>; onPick: (b
             }
           }
         }}
-        aria-label="Search barcode to add"
+        aria-label={t('pickerLabel')}
       />
       {matches.length > 0 && (
         <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border bg-popover shadow-md">
@@ -337,6 +340,7 @@ function BarcodePicker({ index, onPick }: { index: Map<ID, IndexRow>; onPick: (b
 
 /** USB scanners type the code and press Enter; this shows what the POS would resolve it to. */
 function ScanTester() {
+  const t = useTranslations('barcodes')
   const [code, setCode] = useState('')
   const [result, setResult] = useState<{ code: string; text: string; ok: boolean } | null>(null)
 
@@ -354,8 +358,12 @@ function ScanTester() {
     }
     setResult(
       hit
-        ? { code: c, ok: true, text: `${hit.product.name} — ${hit.unit?.name ?? hit.product.baseUnitName}${hit.product.status === 'archived' ? ' (archived)' : ''}` }
-        : { code: c, ok: false, text: 'No product has this barcode.' },
+        ? {
+            code: c,
+            ok: true,
+            text: `${hit.product.name} — ${hit.unit?.name ?? hit.product.baseUnitName}${hit.product.status === 'archived' ? ` (${t('archived')})` : ''}`,
+          }
+        : { code: c, ok: false, text: t('notFound') },
     )
     setCode('')
   }
@@ -364,14 +372,14 @@ function ScanTester() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <ScanLine className="size-4" aria-hidden /> Scanner test
+          <ScanLine className="size-4" aria-hidden /> {t('scannerTest')}
         </CardTitle>
-        <CardDescription>Click the box and scan. Most USB scanners type like a keyboard and press Enter.</CardDescription>
+        <CardDescription>{t('scannerHint')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <Input
           className="font-mono"
-          placeholder="Scan a barcode…"
+          placeholder={t('scanPlaceholder')}
           value={code}
           onChange={(e) => setCode(e.target.value)}
           onKeyDown={(e) => {
@@ -380,7 +388,7 @@ function ScanTester() {
               void lookup()
             }
           }}
-          aria-label="Scan a barcode"
+          aria-label={t('scanLabel')}
         />
         {result && (
           <div className={`rounded-md border p-3 text-sm ${result.ok ? 'border-success/40 bg-success/10' : 'border-destructive/40 bg-destructive/5'}`}>

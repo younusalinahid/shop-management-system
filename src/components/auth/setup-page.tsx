@@ -13,33 +13,36 @@ import { Separator } from '@/components/ui/separator'
 import { api } from '@/lib/api-client'
 import { errorMessage } from '@/lib/errors'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
+import { LanguageSwitcher } from '@/components/layout/language-switcher'
 
 // Same rules as the server's setup API (src/app/api/setup/route.ts).
-const pinSchema = z.string().min(4, 'PIN must be at least 4 characters').max(32, 'PIN is too long')
+const pinSchema = z.string().min(4, 'v.pinMin').max(32, 'v.pinMax')
 const usernameSchema = z
   .string()
   .trim()
   .toLowerCase()
-  .min(2, 'Username must be at least 2 characters')
+  .min(2, 'v.usernameMin')
   .max(32)
-  .regex(/^[a-z0-9._-]+$/, 'Use letters, numbers, dot, dash or underscore')
+  .regex(/^[a-z0-9._-]+$/, 'v.usernameChars')
 
 const schema = z
   .object({
-    shopName: z.string().trim().min(1, 'Shop name is required').max(100),
+    shopName: z.string().trim().min(1, 'v.shopNameRequired').max(100),
     shopPhone: z.string().trim().max(30),
     shopAddress: z.string().trim().max(200),
-    name: z.string().trim().min(1, 'Your name is required').max(80),
+    name: z.string().trim().min(1, 'v.yourNameRequired').max(80),
     username: usernameSchema,
     pin: pinSchema,
     confirmPin: z.string(),
   })
-  .refine((v) => v.pin === v.confirmPin, { path: ['confirmPin'], message: 'PINs do not match' })
+  .refine((v) => v.pin === v.confirmPin, { path: ['confirmPin'], message: 'v.pinsDontMatch' })
 
 type Values = z.infer<typeof schema>
 
 export function SetupPage() {
   const router = useRouter()
+  const t = useTranslations('auth')
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: { shopName: '', shopPhone: '', shopAddress: '', name: '', username: 'owner', pin: '', confirmPin: '' },
@@ -48,7 +51,7 @@ export function SetupPage() {
   const onSubmit = async (v: Values) => {
     try {
       await api.post('/api/setup', { shopName: v.shopName, shopPhone: v.shopPhone, shopAddress: v.shopAddress, name: v.name, username: v.username, pin: v.pin })
-      toast.success('Shop set up')
+      toast.success(t('shopSetUp'))
       router.replace('/dashboard')
       router.refresh()
     } catch (e) {
@@ -57,15 +60,18 @@ export function SetupPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
+    <div className="relative flex min-h-svh items-center justify-center bg-gradient-to-br from-primary/15 via-background to-info/10 p-4">
+      <div className="absolute top-3 right-3">
+        <LanguageSwitcher compact={false} />
+      </div>
       <Card className="w-full max-w-lg">
         <CardHeader>
           <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Store className="size-5" aria-hidden />
           </div>
-          <CardTitle className="text-xl">Set up your shop</CardTitle>
+          <CardTitle className="text-xl">{t('setupTitle')}</CardTitle>
           <CardDescription>
-            Creates the owner account for your shop. You can change these details later in Settings.
+            {t('setupDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -76,9 +82,9 @@ export function SetupPage() {
                 name="shopName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Shop name</FormLabel>
+                    <FormLabel>{t('shopName')}</FormLabel>
                     <FormControl>
-                      <Input autoFocus placeholder="Enter your shop name" {...field} />
+                      <Input autoFocus placeholder={t('shopNamePlaceholder')} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -90,7 +96,7 @@ export function SetupPage() {
                   name="shopPhone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone (optional)</FormLabel>
+                      <FormLabel>{t('phoneOptional')}</FormLabel>
                       <FormControl>
                         <Input inputMode="tel" placeholder="01XXXXXXXXX" {...field} />
                       </FormControl>
@@ -103,7 +109,7 @@ export function SetupPage() {
                   name="shopAddress"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Address (optional)</FormLabel>
+                      <FormLabel>{t('addressOptional')}</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -113,14 +119,14 @@ export function SetupPage() {
                 />
               </div>
               <Separator />
-              <p className="text-sm font-medium">Owner account</p>
+              <p className="text-sm font-medium">{t('ownerAccount')}</p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Your name</FormLabel>
+                      <FormLabel>{t('yourName')}</FormLabel>
                       <FormControl>
                         <Input autoComplete="name" {...field} />
                       </FormControl>
@@ -133,7 +139,7 @@ export function SetupPage() {
                   name="username"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Username</FormLabel>
+                      <FormLabel>{t('username')}</FormLabel>
                       <FormControl>
                         <Input autoComplete="username" {...field} />
                       </FormControl>
@@ -146,7 +152,7 @@ export function SetupPage() {
                   name="pin"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>PIN / password</FormLabel>
+                      <FormLabel>{t('pinPassword')}</FormLabel>
                       <FormControl>
                         <Input type="password" autoComplete="new-password" {...field} />
                       </FormControl>
@@ -159,7 +165,7 @@ export function SetupPage() {
                   name="confirmPin"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Confirm PIN</FormLabel>
+                      <FormLabel>{t('confirmPin')}</FormLabel>
                       <FormControl>
                         <Input type="password" autoComplete="new-password" {...field} />
                       </FormControl>
@@ -169,10 +175,10 @@ export function SetupPage() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Use a PIN only you know. Every sale and change is recorded under the account that made it.
+                {t('pinHint')}
               </p>
               <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Setting up…' : 'Create shop'}
+                {form.formState.isSubmitting ? t('settingUp') : t('createShop')}
               </Button>
             </form>
           </Form>

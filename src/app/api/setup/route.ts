@@ -13,10 +13,10 @@ export const GET = route(async () => {
 })
 
 const setupSchema = z.object({
-  shopName: z.string().trim().min(1, 'Shop name is required').max(100),
+  shopName: z.string().trim().min(1, 'v.shopNameRequired').max(100),
   shopPhone: z.string().trim().max(30).default(''),
   shopAddress: z.string().trim().max(200).default(''),
-  name: z.string().trim().min(1, 'Your name is required').max(80),
+  name: z.string().trim().min(1, 'v.yourNameRequired').max(80),
   username: usernameSchema,
   pin: pinSchema,
 })

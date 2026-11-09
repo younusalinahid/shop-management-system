@@ -78,7 +78,7 @@ export async function exportProductsCsv(db: Db, actor: Actor, opts: { productIds
  */
 export async function importProducts(db: Db, actor: Actor, parsed: ParsedImport): Promise<ImportResult> {
   assertCan(actor, 'products.edit', 'products.edit_price')
-  if (parsed.errors.length) throw new BusinessError('invalid', 'Fix the errors in the file before importing.')
+  if (parsed.errors.length) throw new BusinessError('invalid', 'Fix the errors in the file before importing.', { key: 'csvHasErrors' })
   const now = Date.now()
 
   return db.transaction(async (tx) => {

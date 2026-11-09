@@ -55,7 +55,13 @@ export function productCsvTemplate(): string {
 
 export interface CsvIssue {
   line: number
+  /** English text (fallback). */
   message: string
+  /** Translation key under csv.* and its values, for showing the problem in the user's language. */
+  key?: string
+  values?: Record<string, string | number>
+  /** A schema validation key ("v.…") with its values, shown after the product name. */
+  issue?: { message: string; values?: Record<string, string | number> }
 }
 
 export interface ParsedImport {
@@ -69,7 +75,7 @@ function parseBool(v: string, line: number, col: string, errors: CsvIssue[], fal
   if (s === '') return fallback
   if (['yes', 'y', 'true', '1'].includes(s)) return true
   if (['no', 'n', 'false', '0'].includes(s)) return false
-  errors.push({ line, message: `${col}: expected yes or no, got "${v}"` })
+  errors.push({ line, message: `${col}: expected yes or no, got "${v}"`, key: 'notYesNo', values: { col, value: v } })
   return fallback
 }
 
@@ -80,7 +86,7 @@ function parseMoneyCell(v: string, line: number, col: string, errors: CsvIssue[]
     if (m < 0) throw new Error()
     return m
   } catch {
-    errors.push({ line, message: `${col}: "${v}" is not a valid amount (max 2 decimals)` })
+    errors.push({ line, message: `${col}: "${v}" is not a valid amount (max 2 decimals)`, key: 'badAmount', values: { col, value: v } })
     return 0
   }
 }
@@ -92,12 +98,12 @@ export function parseProductCsv(text: string): ParsedImport {
   try {
     rows = csvToObjects(text)
   } catch (e) {
-    return { products: [], errors: [{ line: 0, message: e instanceof Error ? e.message : 'Unreadable CSV' }] }
+    return { products: [], errors: [{ line: 0, message: e instanceof Error ? e.message : 'Unreadable CSV', key: 'unreadable' }] }
   }
-  if (rows.length === 0) return { products: [], errors: [{ line: 0, message: 'The file has no data rows.' }] }
+  if (rows.length === 0) return { products: [], errors: [{ line: 0, message: 'The file has no data rows.', key: 'noRows' }] }
   const header = Object.keys(rows[0].values)
   for (const col of ['name', 'unit', 'factor', 'is_base']) {
-    if (!header.includes(col)) errors.push({ line: 1, message: `Missing required column "${col}"` })
+    if (!header.includes(col)) errors.push({ line: 1, message: `Missing required column "${col}"`, key: 'missingColumn', values: { col } })
   }
   if (errors.length) return { products: [], errors }
 
@@ -105,7 +111,7 @@ export function parseProductCsv(text: string): ParsedImport {
   for (const r of rows) {
     const key = r.values.sku ? `sku:${normalizeSku(r.values.sku)}` : `name:${r.values.name.toLowerCase()}`
     if (!r.values.sku && !r.values.name) {
-      errors.push({ line: r.line, message: 'Each row needs a sku or a name' })
+      errors.push({ line: r.line, message: 'Each row needs a sku or a name', key: 'needSkuOrName' })
       continue
     }
     groups.set(key, [...(groups.get(key) ?? []), r])
@@ -125,10 +131,10 @@ export function parseProductCsv(text: string): ParsedImport {
       if (d.scale > 2 || d.units < 0n) throw new Error()
       taxRate = mulToInteger(d, 100, 'exact')
     } catch {
-      rowErrors.push({ line, message: `tax_rate: "${v.tax_rate}" is not a valid percentage` })
+      rowErrors.push({ line, message: `tax_rate: "${v.tax_rate}" is not a valid percentage`, key: 'badTaxRate', values: { value: v.tax_rate } })
     }
     const minStock = Number(v.min_stock || '0')
-    if (!Number.isSafeInteger(minStock) || minStock < 0) rowErrors.push({ line, message: 'min_stock: whole number in base units expected' })
+    if (!Number.isSafeInteger(minStock) || minStock < 0) rowErrors.push({ line, message: 'min_stock: whole number in base units expected', key: 'badMinStock' })
 
     const units: ProductInput['units'] = []
     const barcodes: ProductInput['barcodes'] = []
@@ -151,14 +157,14 @@ export function parseProductCsv(text: string): ParsedImport {
       })
       for (const code of (u.barcodes ?? '').split('|').map((c) => c.trim()).filter(Boolean)) {
         const other = seenCodes.get(code)
-        if (other !== undefined) rowErrors.push({ line: r.line, message: `Barcode ${code} also appears on line ${other}` })
+        if (other !== undefined) rowErrors.push({ line: r.line, message: `Barcode ${code} also appears on line ${other}`, key: 'duplicateBarcode', values: { code, other } })
         seenCodes.set(code, r.line)
         barcodes.push({ code, unitId: isBase ? undefined : id })
       }
     }
 
     const status = (v.status || 'active').toLowerCase()
-    if (status !== 'active' && status !== 'archived') rowErrors.push({ line, message: 'status: active or archived expected' })
+    if (status !== 'active' && status !== 'archived') rowErrors.push({ line, message: 'status: active or archived expected', key: 'badStatus' })
 
     const input: ProductInput = {
       name: v.name,
@@ -174,7 +180,15 @@ export function parseProductCsv(text: string): ParsedImport {
     }
     const res = productInputSchema.safeParse(input)
     if (!res.success) {
-      for (const issue of res.error.issues) rowErrors.push({ line, message: `${v.name || v.sku}: ${issue.message}` })
+      for (const issue of res.error.issues) {
+        rowErrors.push({
+          line,
+          message: `${v.name || v.sku}: ${issue.message}`,
+          key: 'rowIssue',
+          values: { name: v.name || v.sku },
+          issue: { message: issue.message, values: (issue as { params?: Record<string, string | number> }).params },
+        })
+      }
     }
     errors.push(...rowErrors)
     if (res.success && rowErrors.length === 0) {

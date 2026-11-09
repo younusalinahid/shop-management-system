@@ -241,3 +241,90 @@ export const stockMovements = pgTable(
   },
   (t) => [index('stock_movements_product_idx').on(t.productId, t.createdAt), index('stock_movements_ref_idx').on(t.refId)],
 )
+
+// ---------------------------------------------------------------- suppliers and purchases (Phase 3)
+
+/** Minimal supplier record for purchases; full supplier management (payments, ledger) comes in Phase 5. */
+export const suppliers = pgTable(
+  'suppliers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    companyName: text('company_name'),
+    phone: text('phone'),
+    address: text('address'),
+    openingBalance: money('opening_balance').notNull().default(0),
+    /** Cached payable (shop owes the supplier). Changed only together with the document that causes it. */
+    balance: money('balance').notNull().default(0),
+    status: status(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('suppliers_name_uq').on(sql`lower(${t.name})`)],
+)
+
+export const purchases = pgTable(
+  'purchases',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    purchaseNo: text('purchase_no').notNull(),
+    /** Client key per "Save purchase" click; a retried request returns the first result. */
+    idempotencyKey: text('idempotency_key').notNull(),
+    supplierId: uuid('supplier_id').references(() => suppliers.id),
+    supplierName: text('supplier_name').notNull(),
+    referenceNo: text('reference_no'),
+    purchaseDate: date('purchase_date', { mode: 'string' }).notNull(),
+    status: text('status', { enum: ['completed', 'partially_returned', 'returned', 'cancelled'] }).notNull(),
+    subtotal: money('subtotal').notNull(),
+    discount: money('discount').notNull(),
+    additionalCost: money('additional_cost').notNull(),
+    total: money('total').notNull(),
+    paid: money('paid').notNull(),
+    due: money('due').notNull(),
+    userId: text('user_id').notNull(),
+    userName: text('user_name').notNull(),
+    note: text('note'),
+    cancelledAt: timestampMs('cancelled_at'),
+    cancelReason: text('cancel_reason'),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('purchases_no_uq').on(t.purchaseNo),
+    uniqueIndex('purchases_idem_uq').on(t.idempotencyKey),
+    index('purchases_date_idx').on(t.purchaseDate),
+    index('purchases_supplier_idx').on(t.supplierId),
+  ],
+)
+
+/** Purchase lines keep snapshots (name, unit, factor, cost) so later product edits never change history. */
+export const purchaseItems = pgTable(
+  'purchase_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    purchaseId: uuid('purchase_id')
+      .notNull()
+      .references(() => purchases.id, { onDelete: 'cascade' }),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id),
+    productName: text('product_name').notNull(),
+    sku: text('sku').notNull(),
+    unitId: uuid('unit_id').notNull(),
+    unitName: text('unit_name').notNull(),
+    unitFactor: integer('unit_factor').notNull(),
+    /** Quantity in the purchase unit as an exact decimal string ("2.5"). */
+    quantity: text('quantity').notNull(),
+    baseQty: qty('base_qty').notNull(),
+    unitCost: money('unit_cost').notNull(),
+    /** quantity × unitCost, before the invoice discount and additional cost. */
+    amount: money('amount').notNull(),
+    /** Landed cost: amount − share of discount + share of additional cost. Added to inventory value. */
+    lineTotal: money('line_total').notNull(),
+    batchId: uuid('batch_id').references(() => productBatches.id),
+    batchNo: text('batch_no'),
+    expiryDate: date('expiry_date', { mode: 'string' }),
+    returnedBaseQty: qty('returned_base_qty').notNull().default(0),
+    sortOrder: integer('sort_order').notNull(),
+    createdAt: timestampMs('created_at').notNull(),
+  },
+  (t) => [index('purchase_items_purchase_idx').on(t.purchaseId), index('purchase_items_product_idx').on(t.productId)],
+)

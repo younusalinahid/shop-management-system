@@ -9,14 +9,14 @@ import { isValidFactor, MAX_FACTOR } from './units'
  */
 
 export const MAX_MONEY = 100_000_000_000 // ৳1,000,000,000.00 per unit is far beyond any real price
-const money = z.number().int('Price must be in whole poisha').min(0, 'Price cannot be negative').max(MAX_MONEY, 'Price is too large')
+const money = z.number().int('v.priceWholePoisha').min(0, 'v.priceNegative').max(MAX_MONEY, 'v.priceTooLarge')
 
 export const productUnitSchema = z.object({
   /** Client-generated UUID, so barcodes and "contains N × unit" rows can refer to unsaved units. */
   id: z.string().uuid(),
-  name: z.string().trim().min(1, 'Unit name is required').max(30, 'Unit name is too long'),
+  name: z.string().trim().min(1, 'v.unitNameRequired').max(30, 'v.unitNameTooLong'),
   symbol: z.string().trim().max(10).optional(),
-  factor: z.number().refine(isValidFactor, `Conversion must be a whole number from 1 to ${MAX_FACTOR.toLocaleString('en-US')}`),
+  factor: z.number().refine(isValidFactor, { message: 'v.conversionRange', params: { max: MAX_FACTOR.toLocaleString('en-US') } }),
   isBase: z.boolean(),
   canPurchase: z.boolean(),
   canSell: z.boolean(),
@@ -28,19 +28,19 @@ export type ProductUnitInput = z.infer<typeof productUnitSchema>
 
 export const BARCODE_RE = /^[\x21-\x7e]{1,48}$/
 export const productBarcodeSchema = z.object({
-  code: z.string().trim().regex(BARCODE_RE, 'Barcode: 1–48 characters, letters, digits or symbols, no spaces'),
+  code: z.string().trim().regex(BARCODE_RE, 'v.barcodeFormat'),
   unitId: z.string().uuid().optional(),
 })
 export type ProductBarcodeInput = z.infer<typeof productBarcodeSchema>
 
 export const productInputSchema = z
   .object({
-    name: z.string().trim().min(1, 'Product name is required').max(150, 'Name is too long'),
+    name: z.string().trim().min(1, 'v.productNameRequired').max(150, 'v.nameTooLong'),
     sku: z
       .string()
       .trim()
-      .max(40, 'SKU is too long')
-      .regex(/^[A-Za-z0-9._\-/]*$/, 'SKU: letters, digits, . _ - / only')
+      .max(40, 'v.skuTooLong')
+      .regex(/^[A-Za-z0-9._\-/]*$/, 'v.skuChars')
       .optional()
       .default(''),
     categoryId: z.string().uuid().optional(),
@@ -48,41 +48,41 @@ export const productInputSchema = z
     description: z.string().trim().max(1000).optional().default(''),
     imageDataUrl: z
       .string()
-      .refine((s) => s.startsWith('data:image/'), 'Invalid image')
-      .refine((s) => s.length <= 600_000, 'Image is too large')
+      .refine((s) => s.startsWith('data:image/'), 'v.invalidImage')
+      .refine((s) => s.length <= 600_000, 'v.imageTooLarge')
       .optional(),
     allowFraction: z.boolean(),
-    minStockQty: z.number().int().min(0, 'Minimum stock cannot be negative').max(Number.MAX_SAFE_INTEGER),
-    taxRate: z.number().int().min(0).max(10_000, 'Tax cannot exceed 100%'),
+    minStockQty: z.number().int().min(0, 'v.minStockNegative').max(Number.MAX_SAFE_INTEGER),
+    taxRate: z.number().int().min(0).max(10_000, 'v.taxMax'),
     trackBatches: z.boolean(),
     trackExpiry: z.boolean(),
-    units: z.array(productUnitSchema).min(1, 'Add at least the base unit').max(20, 'At most 20 units per product'),
-    barcodes: z.array(productBarcodeSchema).max(50, 'At most 50 barcodes per product'),
+    units: z.array(productUnitSchema).min(1, 'v.unitsMin').max(20, 'v.unitsMax'),
+    barcodes: z.array(productBarcodeSchema).max(50, 'v.barcodesMax'),
   })
   .superRefine((p, ctx) => {
     const bases = p.units.filter((u) => u.isBase)
-    if (bases.length !== 1) ctx.addIssue({ code: 'custom', path: ['units'], message: 'Exactly one unit must be the base unit' })
-    else if (bases[0].factor !== 1) ctx.addIssue({ code: 'custom', path: ['units'], message: 'The base unit must have conversion 1' })
+    if (bases.length !== 1) ctx.addIssue({ code: 'custom', path: ['units'], message: 'v.exactlyOneBase' })
+    else if (bases[0].factor !== 1) ctx.addIssue({ code: 'custom', path: ['units'], message: 'v.baseFactorOne' })
 
     const names = new Set<string>()
     const ids = new Set<string>()
     p.units.forEach((u, i) => {
       const key = u.name.trim().toLowerCase()
-      if (names.has(key)) ctx.addIssue({ code: 'custom', path: ['units', i, 'name'], message: `Unit "${u.name}" is listed twice` })
+      if (names.has(key)) ctx.addIssue({ code: 'custom', path: ['units', i, 'name'], message: 'v.unitTwice', params: { name: u.name } })
       names.add(key)
-      if (ids.has(u.id)) ctx.addIssue({ code: 'custom', path: ['units', i, 'id'], message: 'Duplicate unit id' })
+      if (ids.has(u.id)) ctx.addIssue({ code: 'custom', path: ['units', i, 'id'], message: 'v.duplicateUnitId' })
       ids.add(u.id)
     })
-    if (!p.units.some((u) => u.canSell)) ctx.addIssue({ code: 'custom', path: ['units'], message: 'At least one unit must be sellable' })
-    if (!p.units.some((u) => u.canPurchase)) ctx.addIssue({ code: 'custom', path: ['units'], message: 'At least one unit must be purchasable' })
+    if (!p.units.some((u) => u.canSell)) ctx.addIssue({ code: 'custom', path: ['units'], message: 'v.oneSellable' })
+    if (!p.units.some((u) => u.canPurchase)) ctx.addIssue({ code: 'custom', path: ['units'], message: 'v.onePurchasable' })
 
     const codes = new Set<string>()
     p.barcodes.forEach((b, i) => {
-      if (codes.has(b.code)) ctx.addIssue({ code: 'custom', path: ['barcodes', i, 'code'], message: `Barcode ${b.code} is listed twice` })
+      if (codes.has(b.code)) ctx.addIssue({ code: 'custom', path: ['barcodes', i, 'code'], message: 'v.barcodeTwice', params: { code: b.code } })
       codes.add(b.code)
-      if (b.unitId && !ids.has(b.unitId)) ctx.addIssue({ code: 'custom', path: ['barcodes', i, 'unitId'], message: 'Barcode points to a unit that is not in the list' })
+      if (b.unitId && !ids.has(b.unitId)) ctx.addIssue({ code: 'custom', path: ['barcodes', i, 'unitId'], message: 'v.barcodeUnitMissing' })
     })
-    if (p.trackExpiry && !p.trackBatches) ctx.addIssue({ code: 'custom', path: ['trackExpiry'], message: 'Expiry tracking needs batch tracking' })
+    if (p.trackExpiry && !p.trackBatches) ctx.addIssue({ code: 'custom', path: ['trackExpiry'], message: 'v.expiryNeedsBatches' })
   })
 export type ProductInput = z.input<typeof productInputSchema>
 export type ProductData = z.output<typeof productInputSchema>
@@ -148,7 +148,7 @@ export function detailToInput(d: Pick<ProductDetail, 'product' | 'units' | 'barc
 export type PriceField = 'retailPrice' | 'wholesalePrice' | 'purchasePrice'
 
 export const bulkPriceSchema = z.object({
-  productIds: z.array(z.string().uuid()).min(1, 'Select at least one product.').max(5000),
+  productIds: z.array(z.string().uuid()).min(1, 'v.selectProduct').max(5000),
   field: z.enum(['retailPrice', 'wholesalePrice', 'purchasePrice']),
   /** 'base' = only the base unit; 'all' = every unit of each product. */
   scope: z.enum(['base', 'all']),
@@ -157,7 +157,7 @@ export const bulkPriceSchema = z.object({
   value: z
     .number()
     .int()
-    .refine((v) => v !== 0, 'Enter a non-zero change.'),
+    .refine((v) => v !== 0, 'v.nonZeroChange'),
   /** Round results to whole taka (100 poisha) or keep poisha. */
   roundTo: z.union([z.literal(1), z.literal(100)]),
   reason: z.string().trim().max(200).optional(),

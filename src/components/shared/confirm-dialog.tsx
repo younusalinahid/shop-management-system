@@ -11,6 +11,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { buttonVariants } from '@/components/ui/button'
+import { useTranslations } from 'next-intl'
 
 interface ConfirmDialogProps {
   trigger: ReactNode
@@ -22,7 +23,8 @@ interface ConfirmDialogProps {
 }
 
 /** Reusable confirmation for destructive or irreversible actions. Stays open while onConfirm runs. */
-export function ConfirmDialog({ trigger, title, description, confirmLabel = 'Confirm', destructive, onConfirm }: ConfirmDialogProps) {
+export function ConfirmDialog({ trigger, title, description, confirmLabel, destructive, onConfirm }: ConfirmDialogProps) {
+  const t = useTranslations('common')
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   return (
@@ -36,7 +38,7 @@ export function ConfirmDialog({ trigger, title, description, confirmLabel = 'Con
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={busy}>{t('cancel')}</AlertDialogCancel>
           <AlertDialogAction
             disabled={busy}
             className={destructive ? buttonVariants({ variant: 'destructive' }) : undefined}
@@ -51,7 +53,7 @@ export function ConfirmDialog({ trigger, title, description, confirmLabel = 'Con
               }
             }}
           >
-            {busy ? 'Working…' : confirmLabel}
+            {busy ? t('working') : (confirmLabel ?? t('confirm'))}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

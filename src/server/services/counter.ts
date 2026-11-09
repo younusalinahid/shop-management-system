@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm'
 import type { Db } from '../db'
 import { counters } from '../db/schema'
 
-export type CounterId = 'sale' | 'purchase' | 'saleReturn' | 'purchaseReturn' | 'expense' | 'payment' | 'product' | 'barcode'
+export type CounterId = 'sale' | 'purchase' | 'saleReturn' | 'purchaseReturn' | 'expense' | 'payment' | 'product' | 'barcode' | 'batch'
 
 /**
  * Next value of a monotonic counter, atomically (safe with concurrent requests).

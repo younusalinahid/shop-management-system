@@ -1,12 +1,14 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { NextIntlClientProvider } from 'next-intl'
 import { asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProductFormPage } from '@/components/products/product-form-page'
 import { SessionProvider, type SessionUser } from '@/hooks/use-session'
 import { getDb } from '@/server/db'
 import { products, productUnits } from '@/server/db/schema'
+import en from '../../../messages/en.json'
 import { apiJson, mockFetchToApi } from '../../helpers/api'
 
 const push = vi.fn()
@@ -29,61 +31,85 @@ afterEach(() => fetchSpy.mockRestore())
 function renderForm() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <QueryClientProvider client={client}>
-      <SessionProvider user={user}>
-        <ProductFormPage />
-      </SessionProvider>
-    </QueryClientProvider>,
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Dhaka">
+      <QueryClientProvider client={client}>
+        <SessionProvider user={user}>
+          <ProductFormPage />
+        </SessionProvider>
+      </QueryClientProvider>
+    </NextIntlClientProvider>,
   )
 }
 
 const allProducts = async () => (await getDb()).select().from(products)
+const unitsOf = async (productId: string) =>
+  (await getDb()).select().from(productUnits).where(eq(productUnits.productId, productId)).orderBy(asc(productUnits.sortOrder))
+
+async function save(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Add product' }))
+  await vi.waitFor(() => expect(push).toHaveBeenCalled())
+  const [p] = await allProducts()
+  expect(push).toHaveBeenCalledWith(`/products/${p.id}`)
+  return p
+}
 
 describe('ProductFormPage', () => {
-  it('creates rice sold by Gram, KG and Sack, with the sack defined as 25 KG', async () => {
+  it('rice "by weight": sold in KG and by the 25 KG sack, counted in grams', async () => {
     const user = userEvent.setup()
     renderForm()
     await user.type(await screen.findByPlaceholderText('e.g. Miniket Rice'), 'Miniket Rice')
-
-    const nameInputs = () => screen.getAllByPlaceholderText(/Piece, Gram|Packet, KG/)
-    await user.clear(nameInputs()[0])
-    await user.type(nameInputs()[0], 'Gram')
-    await user.click(screen.getByRole('button', { name: /KG \(= 1,000 Gram\)/ }))
-    await user.click(screen.getByRole('button', { name: /Add package unit/ }))
-    await user.type(nameInputs()[2], 'Sack')
-    // New units default to "contains N × the unit above": 25 × KG.
-    const qtyInputs = screen.getAllByPlaceholderText('35')
-    await user.type(qtyInputs[1], '25')
+    await user.click(screen.getByRole('radio', { name: /By weight/ }))
+    await user.type(screen.getByLabelText('Also sold by the sack? KG in 1 sack'), '25')
     expect(await screen.findByText('= 25,000 Gram')).toBeInTheDocument()
 
-    const retail = screen.getAllByLabelText('Retail ৳')
-    await user.type(retail[1], '78')
-    await user.type(retail[2], '1900')
+    // Price rows appear only for units that are sold: KG and Sack (not grams).
+    const selling = screen.getAllByLabelText('Selling price')
+    expect(selling).toHaveLength(2)
+    await user.type(selling[0], '78')
+    await user.type(selling[1], '1900')
 
-    await user.click(screen.getByRole('button', { name: 'Add product' }))
-    await vi.waitFor(() => expect(push).toHaveBeenCalled())
-
-    const [p] = await allProducts()
-    expect(push).toHaveBeenCalledWith(`/products/${p.id}`)
+    const p = await save(user)
     expect(p).toMatchObject({ name: 'Miniket Rice', baseUnitName: 'Gram', allowFraction: true, stockQty: 0 })
-    const units = await (await getDb()).select().from(productUnits).where(eq(productUnits.productId, p.id)).orderBy(asc(productUnits.sortOrder))
-    expect(units.map((u) => [u.name, u.factor, u.retailPrice])).toEqual([
-      ['Gram', 1, 0],
-      ['KG', 1000, 7800],
-      ['Sack', 25_000, 190_000],
+    expect((await unitsOf(p.id)).map((u) => [u.name, u.factor, u.canSell, u.retailPrice])).toEqual([
+      ['Gram', 1, false, 0],
+      ['KG', 1000, true, 7800],
+      ['Sack', 25_000, true, 190_000],
     ])
   })
 
-  it('shows field errors instead of saving invalid input', async () => {
+  it('chocolate "piece and packet": 35 pieces per packet with its own price', async () => {
     const user = userEvent.setup()
     renderForm()
-    await user.click(await screen.findByRole('button', { name: /Add package unit/ }))
-    const unitCard = screen.getByText('Unit 2').closest('div.rounded-lg') as HTMLElement
-    await user.type(within(unitCard).getByPlaceholderText('35'), '0.5')
+    await user.type(await screen.findByPlaceholderText('e.g. Miniket Rice'), '1 Taka Chocolate')
+    await user.click(screen.getByRole('radio', { name: /Piece and packet/ }))
+    await user.type(screen.getByLabelText('How many pieces in 1 Packet?'), '35')
+    const selling = screen.getAllByLabelText('Selling price')
+    await user.type(selling[0], '1')
+    await user.type(selling[1], '33')
+
+    const p = await save(user)
+    expect(p).toMatchObject({ baseUnitName: 'Piece', allowFraction: false })
+    expect((await unitsOf(p.id)).map((u) => [u.name, u.factor, u.retailPrice])).toEqual([
+      ['Piece', 1, 100],
+      ['Packet', 35, 3300],
+    ])
+  })
+
+  it('shows plain errors next to the question instead of saving', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await user.click(await screen.findByRole('radio', { name: /Piece and packet/ }))
+    await user.type(screen.getByLabelText('How many pieces in 1 Packet?'), '0.5')
     await user.click(screen.getByRole('button', { name: 'Add product' }))
     expect(await screen.findByText('Product name is required')).toBeInTheDocument()
-    expect(screen.getByText('Name required')).toBeInTheDocument()
     expect(screen.getByText(/Must come to a whole number of Piece/)).toBeInTheDocument()
     expect(await allProducts()).toHaveLength(0)
+  })
+
+  it('keeps the full unit editor under "Custom"', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await user.click(await screen.findByRole('radio', { name: /Custom/ }))
+    expect(screen.getByRole('button', { name: /Add package unit/ })).toBeInTheDocument()
   })
 })

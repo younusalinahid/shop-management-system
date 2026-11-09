@@ -1,9 +1,13 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { LoginPage } from '@/components/auth/login-page'
 import { entryState } from '@/server/auth/entry'
 
-export const metadata: Metadata = { title: 'Sign in · Shop Management System (POS)' }
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations()
+  return { title: `${t('auth.signIn')} · ${t('app.title')}` }
+}
 
 export default async function Page() {
   const state = await entryState()

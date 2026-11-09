@@ -1,7 +1,9 @@
 "use client"
 
 import * as React from "react"
+import { useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
+import { translateMessage } from "@/i18n/translate"
 import type { Label as LabelPrimitive } from "radix-ui"
 import { Slot } from "radix-ui"
 import {
@@ -137,7 +139,9 @@ function FormDescription({ className, ...props }: React.ComponentProps<"p">) {
 
 function FormMessage({ className, ...props }: React.ComponentProps<"p">) {
   const { error, formMessageId } = useFormField()
-  const body = error ? String(error?.message ?? "") : props.children
+  const t = useTranslations()
+  // Schema messages are translation keys ("v.pinMin"); see src/i18n/translate.ts.
+  const body = error ? translateMessage(t, String(error?.message ?? "")) : props.children
 
   if (!body) {
     return null

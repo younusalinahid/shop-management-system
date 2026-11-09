@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Archive, ArchiveRestore, Pencil, Plus, Search, Tags } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { Archive, ArchiveRestore, Award, Pencil, Plus, Search, Tags } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { PageHeader } from '@/components/shared/page-header'
@@ -25,6 +26,7 @@ import { useRefreshData } from '@/hooks/use-catalog'
 import { api } from '@/lib/api-client'
 import { catalogEntrySchema, categoryPath } from '@/lib/catalog'
 import { errorMessage } from '@/lib/errors'
+import { translateMessage } from '@/i18n/translate'
 
 interface ListResponse<T> {
   items: T[]
@@ -36,10 +38,6 @@ type Kind = 'category' | 'brand'
 type Entry = Category | Brand
 type StatusFilter = 'active' | 'archived' | 'all'
 
-const COPY: Record<Kind, { title: string; singular: string; description: string }> = {
-  category: { title: 'Categories', singular: 'category', description: 'Group products for browsing, filtering and category-wise reports.' },
-  brand: { title: 'Brands', singular: 'brand', description: 'Manufacturers and brands you stock.' },
-}
 
 export function CategoriesPage() {
   return <CatalogEntriesPage kind="category" />
@@ -50,7 +48,8 @@ export function BrandsPage() {
 }
 
 function CatalogEntriesPage({ kind }: { kind: Kind }) {
-  const copy = COPY[kind]
+  const t = useTranslations('catalog')
+  const tk = useTranslations(`catalog.${kind}`)
   const canEdit = usePermission('products.edit')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<StatusFilter>('active')
@@ -82,7 +81,7 @@ function CatalogEntriesPage({ kind }: { kind: Kind }) {
     try {
       await api.patch(`${endpoint(kind)}/${row.id}`, { status: next })
       await refresh()
-      toast.success(`${row.name} ${next === 'archived' ? 'archived' : 'restored'}`)
+      toast.success(next === 'archived' ? t('archivedToast', { name: row.name }) : t('restoredToast', { name: row.name }))
     } catch (e) {
       toast.error(errorMessage(e))
     }
@@ -91,12 +90,13 @@ function CatalogEntriesPage({ kind }: { kind: Kind }) {
   return (
     <>
       <PageHeader
-        title={copy.title}
-        description={copy.description}
+        icon={kind === 'category' ? Tags : Award}
+        title={tk('title')}
+        description={tk('description')}
         actions={
           canEdit && (
             <Button onClick={() => setEditing('new')}>
-              <Plus /> Add {copy.singular}
+              <Plus /> {tk('add')}
             </Button>
           )
         }
@@ -105,13 +105,13 @@ function CatalogEntriesPage({ kind }: { kind: Kind }) {
         <div className="flex flex-col gap-3 border-b p-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-xs">
             <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-            <Input className="pl-8" placeholder={`Search ${copy.title.toLowerCase()}…`} value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search" />
+            <Input className="pl-8" placeholder={tk('search')} value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t('search')} />
           </div>
           <Tabs value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
             <TabsList>
-              <TabsTrigger value="active">Active</TabsTrigger>
-              <TabsTrigger value="archived">Archived</TabsTrigger>
-              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="active">{t('active')}</TabsTrigger>
+              <TabsTrigger value="archived">{t('archived')}</TabsTrigger>
+              <TabsTrigger value="all">{t('all')}</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -121,12 +121,12 @@ function CatalogEntriesPage({ kind }: { kind: Kind }) {
           <div className="p-4">
             <EmptyState
               icon={Tags}
-              title={data.rows.length === 0 ? `No ${copy.title.toLowerCase()} yet` : 'Nothing matches'}
-              description={data.rows.length === 0 ? `Add your first ${copy.singular} to start organising products.` : 'Try a different search or status filter.'}
+              title={data.rows.length === 0 ? tk('emptyTitle') : t('nothingMatches')}
+              description={data.rows.length === 0 ? tk('emptyText') : t('tryDifferent')}
               action={
                 canEdit && data.rows.length === 0 ? (
                   <Button onClick={() => setEditing('new')}>
-                    <Plus /> Add {copy.singular}
+                    <Plus /> {tk('add')}
                   </Button>
                 ) : undefined
               }
@@ -137,10 +137,10 @@ function CatalogEntriesPage({ kind }: { kind: Kind }) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="hidden md:table-cell">Description</TableHead>
-                  <TableHead className="text-right">Products</TableHead>
-                  <TableHead className="hidden sm:table-cell">Updated</TableHead>
+                  <TableHead>{t('name')}</TableHead>
+                  <TableHead className="hidden md:table-cell">{t('description')}</TableHead>
+                  <TableHead className="text-right">{t('products')}</TableHead>
+                  <TableHead className="hidden sm:table-cell">{t('updated')}</TableHead>
                   <TableHead className="w-0" />
                 </TableRow>
               </TableHeader>
@@ -150,7 +150,7 @@ function CatalogEntriesPage({ kind }: { kind: Kind }) {
                     <TableCell className="font-medium">
                       <span className="flex items-center gap-2">
                         {row.label}
-                        {row.status === 'archived' && <Badge variant="secondary">Archived</Badge>}
+                        {row.status === 'archived' && <Badge variant="muted">{t('archived')}</Badge>}
                       </span>
                     </TableCell>
                     <TableCell className="hidden max-w-sm truncate text-muted-foreground md:table-cell">{row.description}</TableCell>
@@ -159,25 +159,23 @@ function CatalogEntriesPage({ kind }: { kind: Kind }) {
                     <TableCell>
                       {canEdit && (
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon-sm" onClick={() => setEditing(row)} aria-label={`Edit ${row.name}`}>
+                          <Button variant="ghost" size="icon-sm" onClick={() => setEditing(row)} aria-label={t('editNamed', { name: row.name })}>
                             <Pencil />
                           </Button>
                           {row.status === 'active' ? (
                             <ConfirmDialog
                               trigger={
-                                <Button variant="ghost" size="icon-sm" aria-label={`Archive ${row.name}`}>
+                                <Button variant="ghost" size="icon-sm" aria-label={t('archiveNamed', { name: row.name })}>
                                   <Archive />
                                 </Button>
                               }
-                              title={`Archive ${row.name}?`}
-                              description={`It will be hidden from pickers. Products keep it, and you can restore it any time.${
-                                data.counts[row.id] ? ` ${data.counts[row.id]} product(s) use it.` : ''
-                              }`}
-                              confirmLabel="Archive"
+                              title={t('archiveConfirmTitle', { name: row.name })}
+                              description={`${t('archiveConfirmText')}${data.counts[row.id] ? ` ${t('productsUsing', { count: data.counts[row.id] })}` : ''}`}
+                              confirmLabel={t('archive')}
                               onConfirm={() => toggleStatus(row)}
                             />
                           ) : (
-                            <Button variant="ghost" size="icon-sm" onClick={() => void toggleStatus(row)} aria-label={`Restore ${row.name}`}>
+                            <Button variant="ghost" size="icon-sm" onClick={() => void toggleStatus(row)} aria-label={t('restoreNamed', { name: row.name })}>
                               <ArchiveRestore />
                             </Button>
                           )}
@@ -205,7 +203,9 @@ function CatalogEntriesPage({ kind }: { kind: Kind }) {
 }
 
 function EntryDialog({ kind, entry, categories, onClose }: { kind: Kind; entry: Entry | null; categories: Category[]; onClose: () => void }) {
-  const copy = COPY[kind]
+  const t = useTranslations('catalog')
+  const tk = useTranslations(`catalog.${kind}`)
+  const tAll = useTranslations()
   const refresh = useRefreshData()
   const [name, setName] = useState(entry?.name ?? '')
   const [description, setDescription] = useState(entry?.description ?? '')
@@ -231,7 +231,7 @@ function EntryDialog({ kind, entry, categories, onClose }: { kind: Kind; entry: 
     e.preventDefault()
     const parsed = catalogEntrySchema.safeParse({ name, description, parentId: parentId || undefined })
     if (!parsed.success) {
-      setError(parsed.error.issues[0].message)
+      setError(translateMessage(tAll, parsed.error.issues[0].message))
       return
     }
     setBusy(true)
@@ -240,7 +240,7 @@ function EntryDialog({ kind, entry, categories, onClose }: { kind: Kind; entry: 
       if (entry) await api.put(`${endpoint(kind)}/${entry.id}`, input)
       else await api.post(endpoint(kind), input)
       await refresh()
-      toast.success(entry ? 'Saved' : `${name.trim()} added`)
+      toast.success(entry ? t('saved') : t('added', { name: name.trim() }))
       onClose()
     } catch (err) {
       setError(errorMessage(err))
@@ -254,23 +254,23 @@ function EntryDialog({ kind, entry, categories, onClose }: { kind: Kind; entry: 
       <DialogContent>
         <form onSubmit={submit} className="space-y-4" noValidate>
           <DialogHeader>
-            <DialogTitle>{entry ? `Edit ${copy.singular}` : `Add ${copy.singular}`}</DialogTitle>
-            <DialogDescription>{copy.description}</DialogDescription>
+            <DialogTitle>{entry ? tk('edit') : tk('add')}</DialogTitle>
+            <DialogDescription>{tk('description')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="entry-name">Name</Label>
+            <Label htmlFor="entry-name">{t('name')}</Label>
             <Input id="entry-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} aria-invalid={!!error} />
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           {kind === 'category' && (
             <div className="space-y-2">
-              <Label>Parent category</Label>
+              <Label>{t('parentCategory')}</Label>
               <Select value={parentId || 'none'} onValueChange={(v) => setParentId(v === 'none' ? '' : v)}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None (top level)</SelectItem>
+                  <SelectItem value="none">{t('topLevel')}</SelectItem>
                   {parentOptions.map((o) => (
                     <SelectItem key={o.id} value={o.id}>
                       {o.label}
@@ -281,15 +281,15 @@ function EntryDialog({ kind, entry, categories, onClose }: { kind: Kind; entry: 
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="entry-desc">Description (optional)</Label>
+            <Label htmlFor="entry-desc">{t('descriptionOptional')}</Label>
             <Textarea id="entry-desc" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
-              Cancel
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={busy}>
-              {busy ? 'Saving…' : 'Save'}
+              {busy ? t('saving') : t('save')}
             </Button>
           </DialogFooter>
         </form>

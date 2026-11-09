@@ -4,6 +4,8 @@ import { useEffect, type ReactNode } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, type Control, type FieldPath } from 'react-hook-form'
 import { useQuery } from '@tanstack/react-query'
+import { Settings as SettingsIcon } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { PageHeader } from '@/components/shared/page-header'
@@ -21,6 +23,7 @@ import { errorMessage } from '@/lib/errors'
 import { useRefreshData } from '@/hooks/use-catalog'
 import { settingsQuery } from '@/hooks/use-settings'
 import { api } from '@/lib/api-client'
+import { LOCALE_LABELS, type Locale } from '@/i18n/config'
 
 const percent = z
   .string()
@@ -32,20 +35,20 @@ const percent = z
     } catch {
       return false
     }
-  }, 'Enter a percentage between 0 and 100 with up to 2 decimals')
+  }, 'v.percentage')
 
 const schema = z.object({
-  shopName: z.string().trim().min(1, 'Shop name is required').max(100),
+  shopName: z.string().trim().min(1, 'v.shopNameRequired').max(100),
   shopPhone: z.string().trim().max(30),
   shopAddress: z.string().trim().max(200),
-  invoicePrefix: z.string().trim().min(1, 'Required').max(10).regex(/^[A-Za-z0-9-/]+$/, 'Letters, numbers, - or / only'),
-  purchasePrefix: z.string().trim().min(1, 'Required').max(10).regex(/^[A-Za-z0-9-/]+$/, 'Letters, numbers, - or / only'),
+  invoicePrefix: z.string().trim().min(1, 'v.required').max(10).regex(/^[A-Za-z0-9-/]+$/, 'v.prefixChars'),
+  purchasePrefix: z.string().trim().min(1, 'v.required').max(10).regex(/^[A-Za-z0-9-/]+$/, 'v.prefixChars'),
   invoiceFooter: z.string().trim().max(300),
   receiptWidthMm: z.enum(['58', '80', '210']),
   defaultTaxRate: percent,
   pricesIncludeTax: z.boolean(),
   defaultPriceMode: z.enum(['retail', 'wholesale']),
-  expiryWarningDays: z.coerce.number().int('Whole days only').min(0).max(365),
+  expiryWarningDays: z.coerce.number().int('v.wholeDays').min(0, 'v.daysRange').max(365, 'v.daysRange'),
   allowNegativeStock: z.boolean(),
   allowExpiredSale: z.boolean(),
   allowMultipleOpenShifts: z.boolean(),
@@ -77,6 +80,8 @@ function toValues(s: AppSettings): Values {
 
 export function SettingsPage() {
   const { data: settings } = useQuery(settingsQuery)
+  const t = useTranslations('settings')
+  const locale = useLocale() as Locale
   const refresh = useRefreshData()
   const form = useForm<Values, unknown, Parsed>({ resolver: zodResolver(schema) })
 
@@ -96,7 +101,7 @@ export function SettingsPage() {
       })
       form.reset(toValues(next))
       await refresh()
-      toast.success('Settings saved')
+      toast.success(t('saved'))
     } catch (e) {
       toast.error(errorMessage(e))
     }
@@ -105,18 +110,18 @@ export function SettingsPage() {
   const c = form.control
   return (
     <>
-      <PageHeader title="Settings" description="Shop details, invoices, tax and sales rules." />
+      <PageHeader icon={SettingsIcon} title={t('title')} description={t('description')} />
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6 xl:grid-cols-2" noValidate>
-          <Section title="Shop information" description="Printed on invoices and receipts.">
-            <TextField control={c} name="shopName" label="Shop name" />
-            <TextField control={c} name="shopPhone" label="Phone" />
+          <Section title={t('shopInfo')} description={t('shopInfoHint')}>
+            <TextField control={c} name="shopName" label={t('shopName')} />
+            <TextField control={c} name="shopPhone" label={t('phone')} />
             <FormField
               control={c}
               name="shopAddress"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel>{t('address')}</FormLabel>
                   <FormControl>
                     <Textarea rows={2} {...field} />
                   </FormControl>
@@ -126,17 +131,17 @@ export function SettingsPage() {
             />
           </Section>
 
-          <Section title="Invoices & receipts">
+          <Section title={t('invoices')}>
             <div className="grid gap-4 sm:grid-cols-2">
-              <TextField control={c} name="invoicePrefix" label="Invoice prefix" description="e.g. INV-000123" />
-              <TextField control={c} name="purchasePrefix" label="Purchase prefix" description="e.g. PUR-000045" />
+              <TextField control={c} name="invoicePrefix" label={t('invoicePrefix')} description={t('example', { value: 'INV-000123' })} />
+              <TextField control={c} name="purchasePrefix" label={t('purchasePrefix')} description={t('example', { value: 'PUR-000045' })} />
             </div>
             <FormField
               control={c}
               name="receiptWidthMm"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Receipt paper</FormLabel>
+                  <FormLabel>{t('receiptPaper')}</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger className="w-full">
@@ -144,9 +149,9 @@ export function SettingsPage() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="58">58 mm thermal</SelectItem>
-                      <SelectItem value="80">80 mm thermal</SelectItem>
-                      <SelectItem value="210">A4 page</SelectItem>
+                      <SelectItem value="58">{t('thermal', { mm: 58 })}</SelectItem>
+                      <SelectItem value="80">{t('thermal', { mm: 80 })}</SelectItem>
+                      <SelectItem value="210">{t('a4')}</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -158,7 +163,7 @@ export function SettingsPage() {
               name="invoiceFooter"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Invoice footer</FormLabel>
+                  <FormLabel>{t('invoiceFooter')}</FormLabel>
                   <FormControl>
                     <Textarea rows={2} {...field} />
                   </FormControl>
@@ -168,15 +173,15 @@ export function SettingsPage() {
             />
           </Section>
 
-          <Section title="Tax & pricing">
-            <TextField control={c} name="defaultTaxRate" label="Default VAT / tax rate (%)" inputMode="decimal" description="Used for new products. 0 for no tax." />
-            <SwitchField control={c} name="pricesIncludeTax" label="Selling prices include tax" description="When on, tax is extracted from the price instead of added on top." />
+          <Section title={t('taxPricing')}>
+            <TextField control={c} name="defaultTaxRate" label={t('defaultTax')} inputMode="decimal" description={t('defaultTaxHint')} />
+            <SwitchField control={c} name="pricesIncludeTax" label={t('pricesIncludeTax')} description={t('pricesIncludeTaxHint')} />
             <FormField
               control={c}
               name="defaultPriceMode"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Default POS price mode</FormLabel>
+                  <FormLabel>{t('priceMode')}</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger className="w-full">
@@ -184,8 +189,8 @@ export function SettingsPage() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="retail">Retail</SelectItem>
-                      <SelectItem value="wholesale">Wholesale</SelectItem>
+                      <SelectItem value="retail">{t('retail')}</SelectItem>
+                      <SelectItem value="wholesale">{t('wholesale')}</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -194,33 +199,33 @@ export function SettingsPage() {
             />
           </Section>
 
-          <Section title="Stock & sales rules">
-            <TextField control={c} name="expiryWarningDays" label="Expiry warning (days)" inputMode="numeric" description="Batches expiring within this many days are flagged." />
-            <SwitchField control={c} name="allowNegativeStock" label="Allow selling below zero stock" description="Not recommended. Off keeps stock counts trustworthy." />
-            <SwitchField control={c} name="allowExpiredSale" label="Allow owner override for expired stock" description="Expired batches stay blocked for everyone else. Every override is audit-logged." />
-            <SwitchField control={c} name="requireShiftForSale" label="Require an open shift to sell" />
-            <SwitchField control={c} name="allowMultipleOpenShifts" label="Allow a cashier to have more than one open shift" />
+          <Section title={t('stockRules')}>
+            <TextField control={c} name="expiryWarningDays" label={t('expiryWarning')} inputMode="numeric" description={t('expiryWarningHint')} />
+            <SwitchField control={c} name="allowNegativeStock" label={t('negativeStock')} description={t('negativeStockHint')} />
+            <SwitchField control={c} name="allowExpiredSale" label={t('expiredOverride')} description={t('expiredOverrideHint')} />
+            <SwitchField control={c} name="requireShiftForSale" label={t('requireShift')} />
+            <SwitchField control={c} name="allowMultipleOpenShifts" label={t('multipleShifts')} />
           </Section>
 
-          <Section title="Region" description="Fixed for this release.">
+          <Section title={t('region')} description={t('regionHint')}>
             <dl className="grid grid-cols-2 gap-y-2 text-sm">
-              <dt className="text-muted-foreground">Currency</dt>
+              <dt className="text-muted-foreground">{t('currency')}</dt>
               <dd>BDT (৳)</dd>
-              <dt className="text-muted-foreground">Timezone</dt>
+              <dt className="text-muted-foreground">{t('timezone')}</dt>
               <dd>Asia/Dhaka</dd>
-              <dt className="text-muted-foreground">Date format</dt>
+              <dt className="text-muted-foreground">{t('dateFormat')}</dt>
               <dd>DD/MM/YYYY</dd>
-              <dt className="text-muted-foreground">Language</dt>
-              <dd>English</dd>
+              <dt className="text-muted-foreground">{t('language')}</dt>
+              <dd>{t('languageValue', { language: LOCALE_LABELS[locale] })}</dd>
             </dl>
           </Section>
 
           <div className="sticky bottom-0 -mx-4 flex justify-end gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 xl:col-span-2">
             <Button type="button" variant="outline" disabled={!form.formState.isDirty} onClick={() => form.reset(toValues(settings))}>
-              Discard changes
+              {t('discard')}
             </Button>
             <Button type="submit" disabled={!form.formState.isDirty || form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Saving…' : 'Save settings'}
+              {form.formState.isSubmitting ? t('saving') : t('save')}
             </Button>
           </div>
         </form>

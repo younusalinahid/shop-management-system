@@ -17,7 +17,7 @@ import {
   productInputSchema,
 } from '@/lib/product'
 import type { Db } from '../db'
-import { brands, categories, productBarcodes, productBatches, products, productUnits, stockMovements } from '../db/schema'
+import { brands, categories, productBarcodes, productBatches, products, productUnits, purchaseItems, stockMovements } from '../db/schema'
 import { type Actor, assertCan, diffFields, writeAudit } from './audit'
 import { listBrands, listCategories } from './catalog'
 import { nextCounter } from './counter'
@@ -26,7 +26,7 @@ import { nextCounter } from './counter'
  * Product catalog: products, their units (with independent prices) and barcodes.
  *
  * Stock fields (`stockQty`, `stockValue`) are NOT edited here. New products start at zero;
- * only the inventory service (Phase 3) changes stock, always together with a stock movement.
+ * only the inventory service (services/inventory.ts) changes stock, always with a stock movement.
  */
 
 // ---------------------------------------------------------------- row mapping
@@ -52,7 +52,7 @@ async function assertSkuFree(db: Db, sku: string, exceptId?: ID) {
     .select({ name: products.name })
     .from(products)
     .where(exceptId ? and(eq(products.sku, sku), ne(products.id, exceptId)) : eq(products.sku, sku))
-  if (clash) throw new BusinessError('duplicate_sku', `SKU ${sku} is already used by "${clash.name}".`)
+  if (clash) throw new BusinessError('duplicate_sku', `SKU ${sku} is already used by "${clash.name}".`, { values: { sku, name: clash.name } })
 }
 
 async function generateSku(db: Db): Promise<string> {
@@ -71,17 +71,19 @@ async function assertBarcodesFree(db: Db, codes: string[], productId: ID | null)
     .innerJoin(products, eq(products.id, productBarcodes.productId))
     .where(inArray(productBarcodes.code, codes))
   const foreign = clashes.find((b) => b.productId !== productId)
-  if (foreign) throw new BusinessError('duplicate_barcode', `Barcode ${foreign.code} already belongs to "${foreign.owner}".`)
+  if (foreign) throw new BusinessError('duplicate_barcode', `Barcode ${foreign.code} already belongs to "${foreign.owner}".`, {
+      values: { code: foreign.code, name: foreign.owner },
+    })
 }
 
 async function assertRefs(db: Db, data: ProductData) {
   if (data.categoryId) {
     const [c] = await db.select({ id: categories.id }).from(categories).where(eq(categories.id, data.categoryId))
-    if (!c) throw new BusinessError('not_found', 'The selected category no longer exists.')
+    if (!c) throw new BusinessError('not_found', 'The selected category no longer exists.', { key: 'categoryGone' })
   }
   if (data.brandId) {
     const [b] = await db.select({ id: brands.id }).from(brands).where(eq(brands.id, data.brandId))
-    if (!b) throw new BusinessError('not_found', 'The selected brand no longer exists.')
+    if (!b) throw new BusinessError('not_found', 'The selected brand no longer exists.', { key: 'brandGone' })
   }
 }
 
@@ -145,18 +147,19 @@ async function unitsOf(db: Db, productId: ID): Promise<ProductUnit[]> {
 }
 
 /**
- * Whether the product has stock or any recorded history. Sale, purchase and return lines join
- * this check when those tables arrive in later phases.
+ * Whether the product has stock or any recorded history. Sale and return lines join this check
+ * when those tables arrive in later phases.
  */
 export async function productHasHistory(db: Db, productId: ID): Promise<boolean> {
   const [p] = await db.select({ stockQty: products.stockQty, stockValue: products.stockValue }).from(products).where(eq(products.id, productId))
   if (!p) return false
   if (p.stockQty !== 0 || p.stockValue !== 0) return true
-  const [[m], [b]] = await Promise.all([
+  const [[m], [b], [pi]] = await Promise.all([
     db.select({ n: count() }).from(stockMovements).where(eq(stockMovements.productId, productId)),
     db.select({ n: count() }).from(productBatches).where(eq(productBatches.productId, productId)),
+    db.select({ n: count() }).from(purchaseItems).where(eq(purchaseItems.productId, productId)),
   ])
-  return m.n > 0 || b.n > 0
+  return m.n > 0 || b.n > 0 || pi.n > 0
 }
 
 // ---------------------------------------------------------------- commands
@@ -182,7 +185,7 @@ export async function insertProduct(db: Db, actor: Actor, data: ProductData): Pr
     .select({ id: productUnits.id })
     .from(productUnits)
     .where(inArray(productUnits.id, data.units.map((u) => u.id)))
-  if (clashUnit) throw new BusinessError('invalid_unit', 'Unit ids must be new for a new product.')
+  if (clashUnit) throw new BusinessError('invalid_unit', 'Unit ids must be new for a new product.', { key: 'unitIdsNotNew' })
 
   const [row] = await db
     .insert(products)
@@ -229,7 +232,7 @@ export async function updateProduct(db: Db, actor: Actor, id: ID, input: Product
   return db.transaction(async (tx) => {
     // Lock the product row so two simultaneous edits can't interleave.
     const [currentRow] = await tx.select().from(products).where(eq(products.id, id)).for('update')
-    if (!currentRow) throw new BusinessError('not_found', 'Product not found.')
+    if (!currentRow) throw new BusinessError('not_found', 'Product not found.', { key: 'productNotFound' })
     const current = toProduct(currentRow)
     const currentUnits = await unitsOf(tx, id)
     if (!can(actor.role, 'products.view_cost')) {
@@ -251,7 +254,7 @@ export async function updateProduct(db: Db, actor: Actor, id: ID, input: Product
         .from(productUnits)
         .where(inArray(productUnits.id, data.units.map((u) => u.id)))
     ).find((u) => u.productId !== id)
-    if (foreignUnit) throw new BusinessError('invalid_unit', 'A unit in the list belongs to another product.')
+    if (foreignUnit) throw new BusinessError('invalid_unit', 'A unit in the list belongs to another product.', { key: 'unitOfOtherProduct' })
 
     const oldBase = currentUnits.find((u) => u.isBase)
     const newBase = data.units.find((u) => u.isBase)!
@@ -259,6 +262,7 @@ export async function updateProduct(db: Db, actor: Actor, id: ID, input: Product
       throw new BusinessError(
         'base_unit_locked',
         `The base unit cannot be replaced because this product already has stock or history (stock is counted in ${oldBase.name}). You can still rename it or add other units.`,
+        { values: { unit: oldBase.name } },
       )
     }
     if (current.trackBatches && !data.trackBatches) {
@@ -335,7 +339,7 @@ export async function setProductStatus(db: Db, actor: Actor, id: ID, status: Rec
   assertCan(actor, 'products.edit')
   await db.transaction(async (tx) => {
     const [current] = await tx.select({ status: products.status }).from(products).where(eq(products.id, id))
-    if (!current) throw new BusinessError('not_found', 'Product not found.')
+    if (!current) throw new BusinessError('not_found', 'Product not found.', { key: 'productNotFound' })
     if (current.status === status) return
     await tx.update(products).set({ status, updatedAt: Date.now() }).where(eq(products.id, id))
     await writeAudit(tx, actor, {
@@ -357,7 +361,7 @@ export async function deleteProduct(db: Db, actor: Actor, id: ID): Promise<void>
   assertCan(actor, 'products.edit')
   await db.transaction(async (tx) => {
     const [row] = await tx.select().from(products).where(eq(products.id, id)).for('update')
-    if (!row) throw new BusinessError('not_found', 'Product not found.')
+    if (!row) throw new BusinessError('not_found', 'Product not found.', { key: 'productNotFound' })
     if (await productHasHistory(tx, id)) {
       throw new BusinessError('has_history', 'This product has stock or transaction history, so it cannot be deleted. Archive it instead.')
     }
@@ -380,7 +384,7 @@ export async function deleteProduct(db: Db, actor: Actor, id: ID): Promise<void>
 export async function bulkUpdatePrices(db: Db, actor: Actor, input: BulkPriceInput): Promise<number> {
   assertCan(actor, 'products.edit', 'products.edit_price')
   const data = bulkPriceSchema.parse(input)
-  if (data.method === 'percent' && data.value <= -10000) throw new BusinessError('invalid', 'A decrease must be less than 100%.')
+  if (data.method === 'percent' && data.value <= -10000) throw new BusinessError('invalid', 'A decrease must be less than 100%.', { key: 'decreaseTooLarge' })
   const now = Date.now()
 
   return db.transaction(async (tx) => {
@@ -394,8 +398,11 @@ export async function bulkUpdatePrices(db: Db, actor: Actor, input: BulkPriceInp
         const before = u[data.field]
         if (before === 0 && data.method === 'percent') continue
         const after = adjustPrice(before, data.method, data.value, data.roundTo)
-        if (after < 0) throw new BusinessError('negative_price', `"${product.name}" (${u.name}) would get a negative price.`)
-        if (after > MAX_MONEY) throw new BusinessError('invalid', `"${product.name}" (${u.name}) would get a price that is too large.`)
+        if (after < 0) throw new BusinessError('negative_price', `"${product.name}" (${u.name}) would get a negative price.`, { values: { name: product.name, unit: u.name } })
+        if (after > MAX_MONEY) throw new BusinessError('invalid', `"${product.name}" (${u.name}) would get a price that is too large.`, {
+          key: 'priceTooLarge',
+          values: { name: product.name, unit: u.name },
+        })
         if (after === before) continue
         await tx
           .update(productUnits)

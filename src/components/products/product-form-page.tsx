@@ -5,7 +5,8 @@ import { Controller, useFieldArray, useForm, useWatch, type Control, type UseFor
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Barcode as BarcodeIcon, ImagePlus, Info, Plus, Trash2, Wand2, X } from 'lucide-react'
+import { ArrowLeft, Barcode as BarcodeIcon, ChevronDown, ImagePlus, Info, PackageOpen, PackagePlus, Plus, Trash2, Wand2, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { BarcodeSvg } from '@/components/shared/barcode-svg'
 import { PageHeader } from '@/components/shared/page-header'
@@ -19,6 +20,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { productUrl } from '@/constants/navigation'
+import { cn } from '@/lib/utils'
+import { PriceTable, SellingKindPicker, TemplateFields } from './selling-type-section'
+import { buildTemplateUnits, detectSetup, FRACTION_OF, type SellingSetup } from './selling-types'
 import type { ID } from '@/types/db'
 import { usePermission } from '@/hooks/use-permission'
 import { useSettings } from '@/hooks/use-settings'
@@ -132,9 +136,11 @@ function inputToValues(input: ProductInput): Values {
 }
 
 type FieldErrors = Array<{ path: string; message: string }>
+/** Translator for the `validation` namespace (validation messages are built outside React). */
+type ValidationT = (key: string, values?: Record<string, string | number>) => string
 
 /** Base-unit factor of every row, in order. Rows may only refer to rows above them. */
-function computeFactors(units: readonly UnitRow[]): { factors: Map<ID, number>; errors: FieldErrors } {
+function computeFactors(units: readonly UnitRow[], tv?: ValidationT): { factors: Map<ID, number>; errors: FieldErrors } {
   const factors = new Map<ID, number>()
   const errors: FieldErrors = []
   units.forEach((u, i) => {
@@ -144,7 +150,7 @@ function computeFactors(units: readonly UnitRow[]): { factors: Map<ID, number>; 
     }
     const ref = factors.get(u.of)
     if (ref === undefined) {
-      errors.push({ path: `units.${i}.qty`, message: 'Pick a unit listed above this one' })
+      errors.push({ path: `units.${i}.qty`, message: tv?.('pickUnitAbove') ?? '' })
       return
     }
     try {
@@ -154,16 +160,16 @@ function computeFactors(units: readonly UnitRow[]): { factors: Map<ID, number>; 
       if (!isValidFactor(f)) throw new Error()
       factors.set(u.key, f)
     } catch {
-      errors.push({ path: `units.${i}.qty`, message: `Must come to a whole number of ${units[0].name || 'base units'} (max ${MAX_FACTOR.toLocaleString('en-US')})` })
+      errors.push({ path: `units.${i}.qty`, message: tv?.('wholeBaseUnits', { unit: units[0].name || '—', max: MAX_FACTOR.toLocaleString('en-US') }) ?? '' })
     }
   })
   return { factors, errors }
 }
 
-function toInput(v: Values): { input?: ProductInput; errors: FieldErrors } {
+function toInput(v: Values, tv: ValidationT): { input?: ProductInput; errors: FieldErrors } {
   const errors: FieldErrors = []
-  if (!v.name.trim()) errors.push({ path: 'name', message: 'Product name is required' })
-  const { factors, errors: factorErrors } = computeFactors(v.units)
+  if (!v.name.trim()) errors.push({ path: 'name', message: tv('productNameRequired') })
+  const { factors, errors: factorErrors } = computeFactors(v.units, tv)
   errors.push(...factorErrors)
 
   const money = (s: string, path: string) => {
@@ -173,12 +179,12 @@ function toInput(v: Values): { input?: ProductInput; errors: FieldErrors } {
       if (m < 0) throw new Error()
       return m
     } catch {
-      errors.push({ path, message: 'Up to 2 decimals' })
+      errors.push({ path, message: tv('upTo2Decimals') })
       return 0
     }
   }
   const units = v.units.map((u, i) => {
-    if (!u.name.trim()) errors.push({ path: `units.${i}.name`, message: 'Name required' })
+    if (!u.name.trim()) errors.push({ path: `units.${i}.name`, message: tv('nameRequired') })
     return {
       id: u.key,
       name: u.name.trim(),
@@ -199,7 +205,7 @@ function toInput(v: Values): { input?: ProductInput; errors: FieldErrors } {
     taxRate = mulToInteger(d, 100, 'exact')
     if (taxRate < 0 || taxRate > 10000) throw new Error()
   } catch {
-    errors.push({ path: 'taxRate', message: 'Percentage from 0 to 100, up to 2 decimals' })
+    errors.push({ path: 'taxRate', message: tv('percentage') })
   }
 
   let minStockQty = 0
@@ -208,14 +214,14 @@ function toInput(v: Values): { input?: ProductInput; errors: FieldErrors } {
     const unitRow = v.units.find((u) => u.key === v.minStockUnit)
     try {
       minStockQty = toBaseQty(v.minStockQty, { name: unitRow?.name ?? '', factor: unitFactor ?? 1 }, true)
-    } catch (e) {
-      errors.push({ path: 'minStockQty', message: e instanceof Error ? e.message : 'Invalid quantity' })
+    } catch {
+      errors.push({ path: 'minStockQty', message: tv('invalidQuantity') })
     }
   }
 
   const barcodes = v.barcodes.map((b, i) => {
     const code = b.code.trim()
-    if (!BARCODE_RE.test(code)) errors.push({ path: `barcodes.${i}.code`, message: '1–48 characters, no spaces' })
+    if (!BARCODE_RE.test(code)) errors.push({ path: `barcodes.${i}.code`, message: tv('barcodeFormat') })
     return { code, unitId: b.unitId && b.unitId !== v.units[0].key ? b.unitId : undefined }
   })
 
@@ -245,6 +251,7 @@ function toInput(v: Values): { input?: ProductInput; errors: FieldErrors } {
 /** Add (no id) or edit a product. */
 export function ProductFormPage({ id }: { id?: ID }) {
   const settings = useSettings()
+  const t = useTranslations('productForm')
   const detail = useQuery({
     queryKey: ['product', id],
     queryFn: () => api.get<ProductDetail>(`/api/products/${id}`),
@@ -255,7 +262,7 @@ export function ProductFormPage({ id }: { id?: ID }) {
 
   // updatedAt 0 = settings still loading; the form's initial tax rate comes from them.
   if ((id && detail.isPending) || settings.updatedAt === 0) return <LoadingState />
-  if (id && detail.isError) return <ErrorState title="Could not load the product" message={errorMessage(detail.error)} />
+  if (id && detail.isError) return <ErrorState title={t('loadError')} message={errorMessage(detail.error)} />
   return (
     <ProductForm
       key={id ?? 'new'}
@@ -269,6 +276,8 @@ export function ProductFormPage({ id }: { id?: ID }) {
 function ProductForm({ id, initial, baseLocked }: { id?: ID; initial: Values; baseLocked: boolean }) {
   const router = useRouter()
   const canEditPrice = usePermission('products.edit_price')
+  const t = useTranslations('productForm')
+  const tv = useTranslations('validation')
   const canViewCost = usePermission('products.view_cost')
   const form = useForm<Values>({ defaultValues: initial })
   const { control, register, handleSubmit, setValue, setError, formState } = form
@@ -288,16 +297,16 @@ function ProductForm({ id, initial, baseLocked }: { id?: ID; initial: Values; ba
 
   const submit = async (v: Values) => {
     setRootError(null)
-    const { input, errors } = toInput(v)
+    const { input, errors } = toInput(v, tv)
     if (!input) {
       for (const e of errors) setError(e.path as never, { message: e.message })
-      toast.error('Please fix the highlighted fields.')
+      toast.error(t('fixFields'))
       return
     }
     try {
       const saved = id ? await api.put<Product>(`/api/products/${id}`, input) : await api.post<Product>('/api/products', input)
       await refresh()
-      toast.success(id ? 'Product saved' : `${saved.name} added`)
+      toast.success(id ? t('saved') : t('added', { name: saved.name }))
       router.push(productUrl(saved.id))
     } catch (e) {
       setRootError(errorMessage(e))
@@ -307,6 +316,24 @@ function ProductForm({ id, initial, baseLocked }: { id?: ID; initial: Values; ba
 
   const addStandardUnit = (name: string, symbol: string, factor: number) => {
     unitsArray.append({ ...emptyUnit(units[0].key, name, String(factor)), symbol })
+  }
+
+  const [setup, setSetup] = useState<SellingSetup>(() => detectSetup(initial.units, computeFactors(initial.units).factors))
+  const [showMore, setShowMore] = useState(false)
+  // Open "More options" by itself when a field inside it has an error.
+  const hasAdvancedErrors = !!(formState.errors.sku || formState.errors.taxRate)
+
+  const applySetup = (next: SellingSetup) => {
+    const kindChanged = next.kind !== setup.kind
+    setSetup(next)
+    if (next.kind === 'custom') return
+    const rows = buildTemplateUnits(next, form.getValues('units'))
+    unitsArray.replace(rows)
+    const keys = new Set(rows.map((r) => r.key))
+    form.getValues('barcodes').forEach((b, k) => b.unitId && !keys.has(b.unitId) && setValue(`barcodes.${k}.unitId`, ''))
+    // Low-stock alert in the unit people think in (KG rather than grams).
+    if (kindChanged || !keys.has(form.getValues('minStockUnit'))) setValue('minStockUnit', rows.find((r) => r.canSell)?.key ?? rows[0].key)
+    setValue('allowFraction', FRACTION_OF[next.kind], { shouldDirty: true })
   }
 
   const onBaseNameChange = (name: string) => {
@@ -320,33 +347,29 @@ function ProductForm({ id, initial, baseLocked }: { id?: ID; initial: Values; ba
   return (
     <form onSubmit={handleSubmit(submit)} noValidate>
       <PageHeader
-        title={id ? 'Edit product' : 'Add product'}
-        description={id ? initial.name : 'Set up the base unit first, then the packages you buy and sell in.'}
+        icon={id ? PackageOpen : PackagePlus}
+        title={id ? t('editTitle') : t('addTitle')}
+        description={id ? initial.name : t('addDescription')}
         actions={
           <Button variant="outline" asChild>
             <Link href={id ? productUrl(id) : '/products'}>
-              <ArrowLeft /> Back
+              <ArrowLeft /> {t('back')}
             </Link>
           </Button>
         }
       />
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
+          {/* 1. What is it? */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Basic information</CardTitle>
+              <StepTitle n={1} title={t('step.info')} />
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
-              <FieldBlock label="Product name" htmlFor="p-name" error={formState.errors.name?.message} className="sm:col-span-2">
-                <Input id="p-name" autoFocus={!id} placeholder="e.g. Miniket Rice" {...register('name')} aria-invalid={!!formState.errors.name} />
+              <FieldBlock label={t('productName')} htmlFor="p-name" error={formState.errors.name?.message} className="sm:col-span-2">
+                <Input id="p-name" autoFocus={!id} placeholder={t('productNamePlaceholder')} className="h-11 text-base font-medium" {...register('name')} aria-invalid={!!formState.errors.name} />
               </FieldBlock>
-              <FieldBlock label="SKU" htmlFor="p-sku" hint="Leave blank to generate one. Stored in capitals." error={formState.errors.sku?.message}>
-                <Input id="p-sku" placeholder="Auto" {...register('sku')} />
-              </FieldBlock>
-              <FieldBlock label="Tax / VAT (%)" htmlFor="p-tax" error={formState.errors.taxRate?.message}>
-                <Input id="p-tax" inputMode="decimal" {...register('taxRate')} aria-invalid={!!formState.errors.taxRate} />
-              </FieldBlock>
-              <FieldBlock label="Category" htmlFor="p-category">
+              <FieldBlock label={t('category')} htmlFor="p-category">
                 <Controller
                   control={control}
                   name="categoryId"
@@ -356,7 +379,7 @@ function ProductForm({ id, initial, baseLocked }: { id?: ID; initial: Values; ba
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">No category</SelectItem>
+                        <SelectItem value="none">{t('noCategory')}</SelectItem>
                         {catalog?.categories
                           .filter((c) => c.status === 'active' || c.id === field.value)
                           .map((c) => ({ id: c.id, label: categoryPath(c.id, catalog.byId) }))
@@ -371,7 +394,7 @@ function ProductForm({ id, initial, baseLocked }: { id?: ID; initial: Values; ba
                   )}
                 />
               </FieldBlock>
-              <FieldBlock label="Brand" htmlFor="p-brand">
+              <FieldBlock label={t('brand')} htmlFor="p-brand">
                 <Controller
                   control={control}
                   name="brandId"
@@ -381,7 +404,7 @@ function ProductForm({ id, initial, baseLocked }: { id?: ID; initial: Values; ba
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">No brand</SelectItem>
+                        <SelectItem value="none">{t('noBrand')}</SelectItem>
                         {catalog?.brands
                           .filter((b) => b.status === 'active' || b.id === field.value)
                           .sort((a, b) => a.name.localeCompare(b.name))
@@ -395,89 +418,110 @@ function ProductForm({ id, initial, baseLocked }: { id?: ID; initial: Values; ba
                   )}
                 />
               </FieldBlock>
-              <FieldBlock label="Description (optional)" htmlFor="p-desc" className="sm:col-span-2">
-                <Textarea id="p-desc" rows={2} {...register('description')} />
-              </FieldBlock>
             </CardContent>
           </Card>
 
+          {/* 2. How is it sold? */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Units &amp; prices</CardTitle>
-              <CardDescription>
-                Stock is always counted in the <strong>base unit</strong>, the smallest unit you ever sell (piece, gram, ml). Every other unit says how many of
-                an earlier unit it holds. Each unit has its own prices, so a packet does not have to cost 35 × the piece price.
-              </CardDescription>
+              <StepTitle n={2} title={t('step.selling')} />
+              <CardDescription>{t('step.sellingHint')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {baseLocked && (
                 <p className="flex gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
                   <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
-                  This product already has stock or history, so its base unit stays the same. Renaming it does not convert stock.
+                  {t('baseLocked')}
                 </p>
               )}
-              <datalist id="base-unit-presets">
-                {BASE_UNIT_PRESETS.map((p) => (
-                  <option key={p.name} value={p.name} />
-                ))}
-              </datalist>
-              <datalist id="package-units">
-                {[...PACKAGE_UNIT_SUGGESTIONS, ...BASE_UNIT_PRESETS.flatMap((p) => p.standard.map((s) => s.name))].map((n) => (
-                  <option key={n} value={n} />
-                ))}
-              </datalist>
+              <SellingKindPicker value={setup.kind} onChange={(kind) => applySetup({ ...setup, kind })} lockedBase={baseLocked ? units[0]?.name : undefined} />
+              <TemplateFields setup={setup} onChange={(patch) => applySetup({ ...setup, ...patch })} unitErrors={formState.errors.units} />
 
-              <div className="space-y-3">
-                {unitsArray.fields.map((field, i) => (
-                  <UnitRowEditor
-                    key={field.rowId}
-                    index={i}
-                    register={register}
-                    control={control}
-                    units={units}
-                    factor={factors.get(units[i]?.key)}
-                    baseName={baseName}
-                    errors={formState.errors.units?.[i]}
-                    canEditPrice={canEditPrice}
-                    canViewCost={canViewCost}
-                    onBaseNameChange={onBaseNameChange}
-                    onRemove={() => {
-                      const key = units[i].key
-                      unitsArray.remove(i)
-                      // Detach anything pointing at the removed unit.
-                      form.getValues('units').forEach((u, k) => u.of === key && setValue(`units.${k}.of`, units[0].key))
-                      form.getValues('barcodes').forEach((b, k) => b.unitId === key && setValue(`barcodes.${k}.unitId`, ''))
-                      if (form.getValues('minStockUnit') === key) setValue('minStockUnit', units[0].key)
-                    }}
-                  />
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {preset?.standard
-                  .filter((s) => !units.some((u) => u.name.trim().toLowerCase() === s.name.toLowerCase()))
-                  .map((s) => (
-                    <Button key={s.name} type="button" variant="outline" size="sm" onClick={() => addStandardUnit(s.name, s.symbol, s.factor)}>
-                      <Plus /> {s.name} (= {s.factor.toLocaleString('en-IN')} {preset.name})
+              {setup.kind === 'custom' && (
+                <>
+                  <p className="text-sm text-muted-foreground">{t.rich('unitsHint', { strong: (chunks) => <strong>{chunks}</strong> })}</p>
+                  <datalist id="base-unit-presets">
+                    {BASE_UNIT_PRESETS.map((p) => (
+                      <option key={p.name} value={p.name} />
+                    ))}
+                  </datalist>
+                  <datalist id="package-units">
+                    {[...PACKAGE_UNIT_SUGGESTIONS, ...BASE_UNIT_PRESETS.flatMap((p) => p.standard.map((s) => s.name))].map((n) => (
+                      <option key={n} value={n} />
+                    ))}
+                  </datalist>
+                  <div className="space-y-3">
+                    {unitsArray.fields.map((field, i) => (
+                      <UnitRowEditor
+                        key={field.rowId}
+                        index={i}
+                        register={register}
+                        control={control}
+                        units={units}
+                        factor={factors.get(units[i]?.key)}
+                        baseName={baseName}
+                        errors={formState.errors.units?.[i]}
+                        canEditPrice={canEditPrice}
+                        canViewCost={canViewCost}
+                        onBaseNameChange={onBaseNameChange}
+                        onRemove={() => {
+                          const key = units[i].key
+                          unitsArray.remove(i)
+                          // Detach anything pointing at the removed unit.
+                          form.getValues('units').forEach((u, k) => u.of === key && setValue(`units.${k}.of`, units[0].key))
+                          form.getValues('barcodes').forEach((b, k) => b.unitId === key && setValue(`barcodes.${k}.unitId`, ''))
+                          if (form.getValues('minStockUnit') === key) setValue('minStockUnit', units[0].key)
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {preset?.standard
+                      .filter((s) => !units.some((u) => u.name.trim().toLowerCase() === s.name.toLowerCase()))
+                      .map((s) => (
+                        <Button key={s.name} type="button" variant="outline" size="sm" onClick={() => addStandardUnit(s.name, s.symbol, s.factor)}>
+                          <Plus /> {t('addStandardUnit', { unit: s.name, factor: s.factor.toLocaleString('en-IN'), base: preset.name })}
+                        </Button>
+                      ))}
+                    <Button type="button" variant="outline" size="sm" onClick={() => unitsArray.append(emptyUnit(units[units.length - 1].key))} disabled={units.length >= 20}>
+                      <Plus /> {t('addPackageUnit')}
                     </Button>
-                  ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => unitsArray.append(emptyUnit(units[units.length - 1].key))} disabled={units.length >= 20}>
-                  <Plus /> Add package unit
-                </Button>
-              </div>
-              {!canEditPrice && <p className="text-xs text-muted-foreground">Your role cannot change prices; price fields are read-only.</p>}
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
+          {/* 3. Prices (custom units carry their prices in the editor above) */}
+          {setup.kind !== 'custom' && (
+            <Card>
+              <CardHeader>
+                <StepTitle n={3} title={t('step.prices')} />
+                <CardDescription>{t('step.pricesHint')}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <PriceTable
+                  units={units}
+                  factors={factors}
+                  register={register as never}
+                  unitErrors={formState.errors.units}
+                  canEditPrice={canEditPrice}
+                  canViewCost={canViewCost}
+                />
+                {!canEditPrice && <p className="text-xs text-muted-foreground">{t('pricesReadOnly')}</p>}
+              </CardContent>
+            </Card>
+          )}
+          {setup.kind === 'custom' && !canEditPrice && <p className="text-xs text-muted-foreground">{t('pricesReadOnly')}</p>}
+
+          {/* 4. Barcode */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Barcodes</CardTitle>
-              <CardDescription>
-                Scan a manufacturer barcode into the field, or generate an in-store code. A barcode linked to a package unit (e.g. Carton) selects that unit
-                when scanned at the POS.
-              </CardDescription>
+              <StepTitle n={setup.kind === 'custom' ? 3 : 4} title={t('step.barcode')} optional={t('step.optional')} />
+              <CardDescription>{t('barcodesHint')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {barcodesArray.fields.length === 0 && <p className="text-sm text-muted-foreground">No barcodes yet.</p>}
+              {barcodesArray.fields.length === 0 && <p className="text-sm text-muted-foreground">{t('noBarcodes')}</p>}
               {barcodesArray.fields.map((field, i) => (
                 <BarcodeRowEditor
                   key={field.rowId}
@@ -491,11 +535,11 @@ function ProductForm({ id, initial, baseLocked }: { id?: ID; initial: Values; ba
               ))}
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => barcodesArray.append({ code: '', unitId: '' })} disabled={barcodesArray.fields.length >= 50}>
-                  <BarcodeIcon /> Add barcode
+                  <BarcodeIcon /> {t('addBarcode')}
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   disabled={barcodesArray.fields.length >= 50}
                   onClick={async () => {
@@ -508,7 +552,7 @@ function ProductForm({ id, initial, baseLocked }: { id?: ID; initial: Values; ba
                     }
                   }}
                 >
-                  <Wand2 /> Generate barcode
+                  <Wand2 /> {t('generateBarcode')}
                 </Button>
               </div>
             </CardContent>
@@ -518,7 +562,7 @@ function ProductForm({ id, initial, baseLocked }: { id?: ID; initial: Values; ba
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Image</CardTitle>
+              <CardTitle className="text-base">{t('image')}</CardTitle>
             </CardHeader>
             <CardContent>
               <ImageField control={control} />
@@ -527,53 +571,94 @@ function ProductForm({ id, initial, baseLocked }: { id?: ID; initial: Values; ba
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Stock rules</CardTitle>
+              <CardTitle className="text-base">{t('stockAlert')}</CardTitle>
+              <CardDescription>{t('lowStockHint')}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <SwitchRow control={control} name="allowFraction" label="Sell fractional quantities" hint={`e.g. 1.5 KG. Quantities are still stored as whole ${baseName}.`} />
-              <div className="space-y-2">
-                <Label htmlFor="minStockQty">Low-stock alert at</Label>
-                <div className="flex gap-2">
-                  <Input id="minStockQty" inputMode="decimal" placeholder="0" {...register('minStockQty')} aria-invalid={!!formState.errors.minStockQty} />
-                  <Controller
-                    control={control}
-                    name="minStockUnit"
-                    render={({ field }) => (
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger className="w-32" aria-label="Unit for low-stock alert">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {units.map((u) => (
-                            <SelectItem key={u.key} value={u.key}>
-                              {u.name || '(unnamed)'}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                </div>
-                {formState.errors.minStockQty && <p className="text-sm text-destructive">{formState.errors.minStockQty.message}</p>}
-                <p className="text-xs text-muted-foreground">Leave empty for no alert.</p>
+            <CardContent className="space-y-2">
+              <Label htmlFor="minStockQty">{t('lowStockAt')}</Label>
+              <div className="flex gap-2">
+                <Input id="minStockQty" inputMode="decimal" placeholder="0" {...register('minStockQty')} aria-invalid={!!formState.errors.minStockQty} />
+                <Controller
+                  control={control}
+                  name="minStockUnit"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="w-32" aria-label={t('lowStockUnit')}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {units.map((u) => (
+                          <SelectItem key={u.key} value={u.key}>
+                            {u.name || '—'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
-              <SwitchRow control={control} name="trackBatches" label="Track batches" hint="Record a batch number on each purchase." disabled={trackExpiry} />
-              <SwitchRow control={control} name="trackExpiry" label="Track expiry dates" hint="Sells the earliest-expiring batch first and blocks expired stock." />
+              {formState.errors.minStockQty && <p className="text-sm text-destructive">{formState.errors.minStockQty.message}</p>}
             </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-2 text-left"
+                onClick={() => setShowMore((v) => !v)}
+                aria-expanded={showMore || hasAdvancedErrors}
+              >
+                <span>
+                  <CardTitle className="text-base">{t('moreOptions')}</CardTitle>
+                  <CardDescription className="mt-1">{t('moreOptionsHint')}</CardDescription>
+                </span>
+                <ChevronDown className={cn('size-5 shrink-0 text-muted-foreground transition-transform', (showMore || hasAdvancedErrors) && 'rotate-180')} aria-hidden />
+              </button>
+            </CardHeader>
+            {(showMore || hasAdvancedErrors) && (
+              <CardContent className="space-y-4">
+                <FieldBlock label={t('sku')} htmlFor="p-sku" hint={t('skuHint')} error={formState.errors.sku?.message}>
+                  <Input id="p-sku" placeholder={t('auto')} {...register('sku')} />
+                </FieldBlock>
+                <FieldBlock label={t('tax')} htmlFor="p-tax" error={formState.errors.taxRate?.message}>
+                  <Input id="p-tax" inputMode="decimal" {...register('taxRate')} aria-invalid={!!formState.errors.taxRate} />
+                </FieldBlock>
+                <FieldBlock label={t('descriptionOptional')} htmlFor="p-desc">
+                  <Textarea id="p-desc" rows={2} {...register('description')} />
+                </FieldBlock>
+                {setup.kind === 'custom' && (
+                  <SwitchRow control={control} name="allowFraction" label={t('allowFraction')} hint={t('allowFractionHint', { unit: baseName })} />
+                )}
+                <SwitchRow control={control} name="trackBatches" label={t('trackBatches')} hint={t('trackBatchesHint')} disabled={trackExpiry} />
+                <SwitchRow control={control} name="trackExpiry" label={t('trackExpiry')} hint={t('trackExpiryHint')} />
+              </CardContent>
+            )}
           </Card>
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-10 -mx-4 mt-6 flex flex-col gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:flex-row sm:items-center sm:justify-end sm:px-6">
+      <div className="sticky bottom-0 z-10 -mx-4 mt-6 flex flex-col gap-2 border-t bg-card/95 px-4 py-3 shadow-[0_-4px_12px_-6px_rgb(0_0_0/0.08)] backdrop-blur sm:-mx-6 sm:flex-row sm:items-center sm:justify-end sm:px-6 lg:-mx-8 lg:px-8">
         {rootError && <p className="text-sm text-destructive sm:mr-auto">{rootError}</p>}
         <Button type="button" variant="outline" onClick={() => router.push(id ? productUrl(id) : '/products')}>
-          Cancel
+          {t('cancel')}
         </Button>
-        <Button type="submit" disabled={formState.isSubmitting}>
-          {formState.isSubmitting ? 'Saving…' : id ? 'Save changes' : 'Add product'}
+        <Button type="submit" size="lg" disabled={formState.isSubmitting}>
+          {formState.isSubmitting ? t('saving') : id ? t('saveChanges') : t('addTitle')}
         </Button>
       </div>
     </form>
+  )
+}
+
+/** Numbered step heading, so the form reads top to bottom like a checklist. */
+function StepTitle({ n, title, optional }: { n: number; title: string; optional?: string }) {
+  return (
+    <CardTitle className="flex items-center gap-3 text-base">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">{n}</span>
+      <span>{title}</span>
+      {optional && <span className="text-xs font-normal text-muted-foreground">({optional})</span>}
+    </CardTitle>
   )
 }
 
@@ -623,6 +708,7 @@ interface UnitRowEditorProps {
 
 function UnitRowEditor({ index, register, control, units, factor, baseName, errors, canEditPrice, canViewCost, onBaseNameChange, onRemove }: UnitRowEditorProps) {
   const uid = useId()
+  const t = useTranslations('productForm')
   const isBase = index === 0
   const row = units[index]
   if (!row) return null
@@ -639,9 +725,9 @@ function UnitRowEditor({ index, register, control, units, factor, baseName, erro
   return (
     <div className="rounded-lg border p-3">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <p className="text-sm font-medium">{isBase ? 'Base unit' : `Unit ${index + 1}`}</p>
+        <p className="text-sm font-medium">{isBase ? t('baseUnit') : t('unitNumber', { n: index + 1 })}</p>
         {!isBase && (
-          <Button type="button" variant="ghost" size="icon-sm" onClick={onRemove} aria-label={`Remove ${row.name || 'unit'}`}>
+          <Button type="button" variant="ghost" size="icon-sm" onClick={onRemove} aria-label={t('removeUnit', { name: row.name || t('unit') })}>
             <Trash2 />
           </Button>
         )}
@@ -649,12 +735,12 @@ function UnitRowEditor({ index, register, control, units, factor, baseName, erro
       <div className="grid gap-3 sm:grid-cols-6">
         <div className="space-y-1 sm:col-span-2">
           <Label className="text-xs" htmlFor={`${uid}-name`}>
-            Name
+            {t('name')}
           </Label>
           <Input
             id={`${uid}-name`}
             list={isBase ? 'base-unit-presets' : 'package-units'}
-            placeholder={isBase ? 'Piece, Gram, ML…' : 'Packet, KG, Sack…'}
+            placeholder={isBase ? t('baseUnitPlaceholder') : t('packageUnitPlaceholder')}
             {...nameReg}
             onChange={(e) => {
               void nameReg.onChange(e)
@@ -666,16 +752,16 @@ function UnitRowEditor({ index, register, control, units, factor, baseName, erro
         </div>
         <div className="space-y-1">
           <Label className="text-xs" htmlFor={`${uid}-symbol`}>
-            Symbol
+            {t('symbol')}
           </Label>
           <Input id={`${uid}-symbol`} placeholder={isBase ? 'pc' : 'pkt'} {...register(`units.${index}.symbol`)} />
         </div>
         {isBase ? (
-          <div className="flex items-end pb-2 text-xs text-muted-foreground sm:col-span-3">Stock is counted in {baseName}.</div>
+          <div className="flex items-end pb-2 text-xs text-muted-foreground sm:col-span-3">{t('countedIn', { unit: baseName })}</div>
         ) : (
           <div className="space-y-1 sm:col-span-3">
             <Label className="text-xs" htmlFor={`${uid}-qty`}>
-              1 {row.name || 'unit'} contains
+              {t('contains', { name: row.name || t('unit') })}
             </Label>
             <div className="flex gap-2">
               <Input id={`${uid}-qty`} inputMode="decimal" className="w-24" placeholder="35" {...register(`units.${index}.qty`)} aria-invalid={!!errors?.qty} />
@@ -684,7 +770,7 @@ function UnitRowEditor({ index, register, control, units, factor, baseName, erro
                 name={`units.${index}.of`}
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="min-w-0 flex-1" aria-label="Contained unit">
+                    <SelectTrigger className="min-w-0 flex-1" aria-label={t('containedUnit')}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -704,7 +790,7 @@ function UnitRowEditor({ index, register, control, units, factor, baseName, erro
               factor !== undefined &&
               row.of !== base.key && (
                 <p className="text-xs text-muted-foreground">
-                  = {factor.toLocaleString('en-IN')} {baseName}
+                  {t('equalsBase', { factor: factor.toLocaleString('en-IN'), unit: baseName })}
                 </p>
               )
             )}
@@ -712,18 +798,18 @@ function UnitRowEditor({ index, register, control, units, factor, baseName, erro
         )}
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-6">
-        <PriceInput label="Retail ৳" reg={register(`units.${index}.retail`)} error={errors?.retail?.message} disabled={!canEditPrice} />
-        <PriceInput label="Wholesale ৳" reg={register(`units.${index}.wholesale`)} error={errors?.wholesale?.message} disabled={!canEditPrice} />
-        {canViewCost && <PriceInput label="Purchase cost ৳" reg={register(`units.${index}.purchase`)} error={errors?.purchase?.message} disabled={!canEditPrice} />}
+        <PriceInput label={t('retail')} reg={register(`units.${index}.retail`)} error={errors?.retail?.message} disabled={!canEditPrice} />
+        <PriceInput label={t('wholesale')} reg={register(`units.${index}.wholesale`)} error={errors?.wholesale?.message} disabled={!canEditPrice} />
+        {canViewCost && <PriceInput label={t('purchaseCost')} reg={register(`units.${index}.purchase`)} error={errors?.purchase?.message} disabled={!canEditPrice} />}
         <div className="flex flex-wrap items-end gap-4 pb-2 sm:col-span-2">
-          <CheckboxField control={control} name={`units.${index}.canSell`} label="Sell" />
-          <CheckboxField control={control} name={`units.${index}.canPurchase`} label="Buy" />
+          <CheckboxField control={control} name={`units.${index}.canSell`} label={t('sell')} />
+          <CheckboxField control={control} name={`units.${index}.canPurchase`} label={t('buy')} />
         </div>
       </div>
       {!isBase && factor !== undefined && basePrice > 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
-          For comparison: {factor.toLocaleString('en-IN')} × {base.name || 'base'} retail = {formatMoney(multiplyMoney(basePrice, factor))}
-          {factor > 1 && ` · 1 ${base.name || 'base'} = ${fromBaseQty(1, { name: row.name, factor })} ${row.name || 'unit'}`}
+          {t('comparison', { factor: factor.toLocaleString('en-IN'), base: base.name || t('baseUnit'), total: formatMoney(multiplyMoney(basePrice, factor)) })}
+          {factor > 1 && ` · ${t('oneBaseIs', { base: base.name || t('baseUnit'), qty: fromBaseQty(1, { name: row.name, factor }), unit: row.name || t('unit') })}`}
         </p>
       )}
     </div>
@@ -774,11 +860,12 @@ function BarcodeRowEditor({
   onRemove: () => void
 }) {
   const code = useWatch({ control, name: `barcodes.${index}.code` })
+  const t = useTranslations('productForm')
   const settings = useSettings()
   return (
     <div className="grid items-start gap-3 rounded-lg border p-3 sm:grid-cols-[1fr_10rem_9rem_auto]">
       <div className="space-y-1">
-        <Input placeholder="Scan or type barcode" className="font-mono" {...register(`barcodes.${index}.code`)} aria-invalid={!!error} aria-label="Barcode" />
+        <Input placeholder={t('barcodePlaceholder')} className="font-mono" {...register(`barcodes.${index}.code`)} aria-invalid={!!error} aria-label={t('barcode')} />
         {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
       <Controller
@@ -786,11 +873,11 @@ function BarcodeRowEditor({
         name={`barcodes.${index}.unitId`}
         render={({ field }) => (
           <Select value={field.value || 'base'} onValueChange={(v) => field.onChange(v === 'base' ? '' : v)}>
-            <SelectTrigger className="w-full" aria-label="Unit selected when scanned">
+            <SelectTrigger className="w-full" aria-label={t('barcodeUnit')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="base">{units[0]?.name || 'Base unit'}</SelectItem>
+              <SelectItem value="base">{units[0]?.name || t('baseUnit')}</SelectItem>
               {units.slice(1).map((u) => (
                 <SelectItem key={u.key} value={u.key}>
                   {u.name || '(unnamed)'}
@@ -801,7 +888,7 @@ function BarcodeRowEditor({
         )}
       />
       <div className="h-9 overflow-hidden">{code?.trim() && BARCODE_RE.test(code.trim()) && <BarcodeSvg value={code.trim()} format={settings.barcodeFormat} height={30} showText={false} className="h-9" />}</div>
-      <Button type="button" variant="ghost" size="icon-sm" onClick={onRemove} aria-label="Remove barcode">
+      <Button type="button" variant="ghost" size="icon-sm" onClick={onRemove} aria-label={t('removeBarcode')}>
         <X />
       </Button>
     </div>
@@ -810,6 +897,7 @@ function BarcodeRowEditor({
 
 function ImageField({ control }: { control: Control<Values> }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const t = useTranslations('productForm')
   const [busy, setBusy] = useState(false)
   return (
     <Controller
@@ -818,7 +906,7 @@ function ImageField({ control }: { control: Control<Values> }) {
       render={({ field }) => (
         <div className="flex items-center gap-4">
           {field.value ? (
-            <img src={field.value} alt="Product" className="size-24 rounded-md border object-cover" />
+            <img src={field.value} alt={t('image')} className="size-24 rounded-md border object-cover" />
           ) : (
             <div className="flex size-24 items-center justify-center rounded-md border border-dashed text-muted-foreground">
               <ImagePlus className="size-6" aria-hidden />
@@ -845,14 +933,14 @@ function ImageField({ control }: { control: Control<Values> }) {
               }}
             />
             <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => inputRef.current?.click()}>
-              {busy ? 'Processing…' : field.value ? 'Change' : 'Upload'}
+              {busy ? t('processing') : field.value ? t('change') : t('upload')}
             </Button>
             {field.value && (
               <Button type="button" variant="ghost" size="sm" onClick={() => field.onChange('')}>
-                Remove
+                {t('remove')}
               </Button>
             )}
-            <p className="text-xs text-muted-foreground">Resized to a small thumbnail and stored on this device.</p>
+            <p className="text-xs text-muted-foreground">{t('imageHint')}</p>
           </div>
         </div>
       )}

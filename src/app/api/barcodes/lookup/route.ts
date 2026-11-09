@@ -7,8 +7,8 @@ import { findByBarcode } from '@/server/services/product'
 export const GET = route(async (req) => {
   await requireActor('products.view')
   const code = new URL(req.url).searchParams.get('code')?.trim()
-  if (!code) throw new BusinessError('invalid', 'Missing barcode.')
+  if (!code) throw new BusinessError('invalid', 'Missing barcode.', { key: 'missingBarcode' })
   const hit = await findByBarcode(await getDb(), code)
-  if (!hit) throw new BusinessError('not_found', 'No product has this barcode.')
+  if (!hit) throw new BusinessError('not_found', 'No product has this barcode.', { key: 'barcodeNotFound' })
   return json(hit)
 })

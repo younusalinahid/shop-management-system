@@ -29,6 +29,14 @@ const ROUTES: Array<[RegExp, () => Promise<RouteModule>]> = [
   [/^\/api\/barcodes\/generate$/, () => import('@/app/api/barcodes/generate/route')],
   [/^\/api\/barcodes\/assign$/, () => import('@/app/api/barcodes/assign/route')],
   [/^\/api\/barcodes\/lookup$/, () => import('@/app/api/barcodes/lookup/route')],
+  [/^\/api\/inventory\/adjust$/, () => import('@/app/api/inventory/adjust/route')],
+  [/^\/api\/inventory\/movements$/, () => import('@/app/api/inventory/movements/route')],
+  [/^\/api\/inventory\/batches$/, () => import('@/app/api/inventory/batches/route')],
+  [/^\/api\/suppliers$/, () => import('@/app/api/suppliers/route')],
+  [/^\/api\/suppliers\/(?<id>[^/]+)$/, () => import('@/app/api/suppliers/[id]/route')],
+  [/^\/api\/purchases$/, () => import('@/app/api/purchases/route')],
+  [/^\/api\/purchases\/(?<id>[^/]+)\/cancel$/, () => import('@/app/api/purchases/[id]/cancel/route')],
+  [/^\/api\/purchases\/(?<id>[^/]+)$/, () => import('@/app/api/purchases/[id]/route')],
 ]
 
 export async function callApi(method: string, path: string, body?: unknown): Promise<Response> {

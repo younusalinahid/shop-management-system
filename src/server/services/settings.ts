@@ -14,12 +14,12 @@ export async function getSettings(db: Db): Promise<AppSettings> {
 /** Fields an API client may change. Region fields (currency, timezone, …) are fixed for this release. */
 export const settingsPatchSchema = z
   .object({
-    shopName: z.string().trim().min(1, 'Shop name is required').max(100),
+    shopName: z.string().trim().min(1, 'v.shopNameRequired').max(100),
     shopPhone: z.string().trim().max(30),
     shopAddress: z.string().trim().max(200),
     logoDataUrl: z.string().startsWith('data:image/').max(600_000).optional(),
-    invoicePrefix: z.string().trim().min(1).max(10).regex(/^[A-Za-z0-9-/]+$/, 'Letters, numbers, - or / only'),
-    purchasePrefix: z.string().trim().min(1).max(10).regex(/^[A-Za-z0-9-/]+$/, 'Letters, numbers, - or / only'),
+    invoicePrefix: z.string().trim().min(1, 'v.required').max(10).regex(/^[A-Za-z0-9-/]+$/, 'v.prefixChars'),
+    purchasePrefix: z.string().trim().min(1, 'v.required').max(10).regex(/^[A-Za-z0-9-/]+$/, 'v.prefixChars'),
     invoiceFooter: z.string().trim().max(300),
     receiptWidthMm: z.union([z.literal(58), z.literal(80), z.literal(210)]),
     defaultTaxRate: z.number().int().min(0).max(10_000),

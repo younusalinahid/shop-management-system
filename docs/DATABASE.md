@@ -37,7 +37,10 @@ generated into `drizzle/` and committed.
 | products | UNIQUE sku, FK category/brand | Cached `stock_qty` (base units) and `stock_value` (poisha) |
 | product_units | UNIQUE (product, lower(name)); UNIQUE product WHERE is_base | `factor` = base units per unit; independent prices |
 | product_barcodes | UNIQUE code, FK product (cascade), FK unit (set null) | Optional unit: a scan selects that package |
-| product_batches | (product, expiry_date) | FEFO; `9999-12-31` = no expiry (Phase 3) |
-| stock_movements | (product, created_at), ref_id | Signed qty and value change, balance after (Phase 3) |
+| product_batches | (product, expiry_date) | FEFO; `9999-12-31` = no expiry. `qty_remaining` falls as stock leaves |
+| stock_movements | (product, created_at), ref_id | Signed qty and value change, balance after. Every stock change has one |
+| suppliers | UNIQUE lower(name) | Cached payable `balance` (opening balance + purchase dues) |
+| purchases | UNIQUE purchase_no, UNIQUE idempotency_key | Totals, paid, due; cancelled, never deleted (migration 0001) |
+| purchase_items | FK purchase (cascade), product, batch | Snapshots: name, unit, factor, decimal quantity, base qty, cost, landed cost |
 
-Sales, purchases, returns, parties, payments, cash, shifts and the ledger are added by migrations in their phases.
+Sales, returns, customers, payments, cash, shifts and the ledger are added by migrations in their phases.

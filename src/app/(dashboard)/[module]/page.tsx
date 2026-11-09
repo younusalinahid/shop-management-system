@@ -5,7 +5,7 @@ import { NAV_ITEMS } from '@/constants/navigation'
  * Sidebar modules from later phases. Each gets a real exported page that says it is not built
  * yet. Built modules have their own folders, which take precedence over this dynamic segment.
  */
-const BUILT = new Set(['/dashboard', '/products', '/categories', '/brands', '/barcodes', '/settings'])
+const BUILT = new Set(['/dashboard', '/products', '/categories', '/brands', '/barcodes', '/inventory', '/stock-movements', '/batches', '/purchases', '/settings'])
 
 export const dynamicParams = false
 

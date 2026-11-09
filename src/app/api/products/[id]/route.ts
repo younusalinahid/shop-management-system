@@ -7,12 +7,12 @@ import { json, readBody, requireActor, route } from '@/server/http'
 import { deleteProduct, getProductDetail, hideCost, setProductStatus, updateProduct } from '@/server/services/product'
 
 type Ctx = { params: Promise<{ id: string }> }
-const idSchema = z.string().uuid('Invalid product id')
+const idSchema = z.string().uuid('v.invalidId')
 
 export const GET = route<Ctx>(async (_req, { params }) => {
   const actor = await requireActor('products.view')
   const detail = await getProductDetail(await getDb(), idSchema.parse((await params).id))
-  if (!detail) throw new BusinessError('not_found', 'Product not found.')
+  if (!detail) throw new BusinessError('not_found', 'Product not found.', { key: 'productNotFound' })
   return json(can(actor.role, 'products.view_cost') ? detail : hideCost(detail))
 })
 

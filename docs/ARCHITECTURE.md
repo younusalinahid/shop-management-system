@@ -144,6 +144,46 @@ nothing if any row is wrong. It then inserts every new product in one transactio
 overwrites) and creates missing categories and brands by name. Exports carry a UTF-8 BOM (Excel) and guard against
 spreadsheet formula injection.
 
+## Inventory and purchases (Phase 3)
+
+**Stock changes only in `server/services/inventory.ts`.** `stockIn` and `stockOut` lock the product row
+(`FOR UPDATE`), update the cached `stock_qty` / `stock_value` and write a `stock_movements` row in the caller's
+transaction, so the movement history always sums to the stock (a test checks it).
+
+- **Valuation:** weighted-average cost. `stock_value` is the total cost on hand; stock out removes
+  `stock_value × qty / stock_qty` (integer, rounded to the poisha). Reversals (cancelling a purchase) remove the exact
+  value they added.
+- **Batches:** for products with batch tracking, stock in creates a batch (number auto-generated when blank; expiry
+  required when expiry tracking is on). Stock out takes from the earliest expiry first (FEFO); stock from before batch
+  tracking was turned on is used last. A write-off can name one batch.
+- **Negative stock:** adjustments and purchase cancellations never go below zero. `allowNegative` exists for sales
+  (Phase 4, from the `allowNegativeStock` setting).
+- **Adjustments** (`POST /api/inventory/adjust`): opening stock, corrections (+/−), damaged, lost, expired. A reason is
+  required except for opening stock. Each one is audited.
+- **Purchases** (`services/purchase.ts`): one transaction saves the purchase, its line snapshots, stock in per line
+  (at landed cost: the invoice discount and extra costs are spread over lines with `allocate()`), the unit's latest
+  purchase price, and the supplier's payable. `idempotencyKey` (one per form) makes retries safe. A due needs a
+  supplier. Cancelling takes the stock back out of the same batches and removes the due; it is refused once any of
+  that stock was sold or written off.
+- **Suppliers** are minimal for now (name, contact, payable); payments and the ledger come in Phase 5.
+
+## Languages (English / বাংলা)
+
+`next-intl`, without URL prefixes: the chosen language lives in the `NEXT_LOCALE` cookie, set by the language
+menu (`components/layout/language-switcher.tsx`). The server reads it in `src/i18n/request.ts`, so the first render
+is already in the right language and `<html lang>` matches.
+
+- **Messages:** `messages/en.json` and `messages/bn.json` must have the same keys and placeholders (a test checks
+  this). Use ICU syntax for counts: `{count, plural, one {# item} other {# items}}`.
+- **Components:** `const t = useTranslations('namespace')`. Never hard-code user-visible English in JSX.
+- **Validation:** Zod schemas shared by forms and APIs use keys, not sentences: `.min(1, 'v.nameRequired')`, with values
+  via `params` for custom issues. `translateMessage()` (`src/i18n/translate.ts`) turns them into `validation.*` text;
+  `FormMessage` does it automatically.
+- **API errors:** throw `new BusinessError(code, englishMessage, { key?, values? })`. `route()` translates
+  `errors.<key ?? code>` into the request's language (`src/server/i18n.ts`), falling back to the English message.
+- **Not translated:** data the user types (product, unit, category names) and numbers/prices, which keep English
+  digits (`৳1,250.50`) to match barcodes, receipts and keyboard input.
+
 ## Modules from later phases
 
 `app/(dashboard)/[module]` renders a "not built yet" page for each sidebar entry that has no folder of its own.

@@ -20,7 +20,10 @@ async function assertUniqueName(db: Db, kind: Kind, name: string, exceptId?: ID)
   const [clash] = await db.select({ name: t.name, status: t.status }).from(t).where(where)
   if (clash) {
     const hint = clash.status === 'archived' ? ' (it is archived; restore it instead)' : ''
-    throw new BusinessError('duplicate_name', `${label(kind)} "${clash.name}" already exists${hint}.`)
+    throw new BusinessError('duplicate_name', `${label(kind)} "${clash.name}" already exists${hint}.`, {
+      key: kind === 'category' ? 'duplicateCategory' : 'duplicateBrand',
+      values: { name: clash.name, archived: clash.status === 'archived' ? 'yes' : 'no' },
+    })
   }
 }
 
@@ -29,10 +32,10 @@ async function assertValidParent(db: Db, id: ID | undefined, parentId: ID | unde
   if (!parentId) return
   let cursor: ID | null | undefined = parentId
   for (let depth = 0; cursor; depth++) {
-    if (cursor === id) throw new BusinessError('invalid_parent', 'A category cannot be placed inside itself.')
-    if (depth > 50) throw new BusinessError('invalid_parent', 'Category nesting is too deep.')
+    if (cursor === id) throw new BusinessError('invalid_parent', 'A category cannot be placed inside itself.', { key: 'parentSelf' })
+    if (depth > 50) throw new BusinessError('invalid_parent', 'Category nesting is too deep.', { key: 'parentTooDeep' })
     const [parent]: Array<{ parentId: string | null }> = await db.select({ parentId: categories.parentId }).from(categories).where(eq(categories.id, cursor))
-    if (!parent) throw new BusinessError('invalid_parent', 'The parent category no longer exists.')
+    if (!parent) throw new BusinessError('invalid_parent', 'The parent category no longer exists.', { key: 'parentMissing' })
     cursor = parent.parentId
   }
 }
@@ -67,7 +70,7 @@ export async function updateCategory(db: Db, actor: Actor, id: ID, input: Catalo
   const data = catalogEntrySchema.parse(input)
   return db.transaction(async (tx) => {
     const [current] = await tx.select().from(categories).where(eq(categories.id, id))
-    if (!current) throw new BusinessError('not_found', 'Category not found.')
+    if (!current) throw new BusinessError('not_found', 'Category not found.', { key: 'categoryNotFound' })
     await assertUniqueName(tx, 'category', data.name, id)
     await assertValidParent(tx, id, data.parentId)
     const patch = { name: data.name, description: data.description || null, parentId: data.parentId ?? null }
@@ -83,7 +86,7 @@ export async function setCategoryStatus(db: Db, actor: Actor, id: ID, status: Re
   assertCan(actor, 'products.edit')
   await db.transaction(async (tx) => {
     const [current] = await tx.select().from(categories).where(eq(categories.id, id))
-    if (!current) throw new BusinessError('not_found', 'Category not found.')
+    if (!current) throw new BusinessError('not_found', 'Category not found.', { key: 'categoryNotFound' })
     if (current.status === status) return
     await tx.update(categories).set({ status, updatedAt: Date.now() }).where(eq(categories.id, id))
     await writeAudit(tx, actor, {
@@ -119,7 +122,7 @@ export async function updateBrand(db: Db, actor: Actor, id: ID, input: CatalogEn
   const data = catalogEntrySchema.parse(input)
   return db.transaction(async (tx) => {
     const [current] = await tx.select().from(brands).where(eq(brands.id, id))
-    if (!current) throw new BusinessError('not_found', 'Brand not found.')
+    if (!current) throw new BusinessError('not_found', 'Brand not found.', { key: 'brandNotFound' })
     await assertUniqueName(tx, 'brand', data.name, id)
     const patch = { name: data.name, description: data.description || null }
     const { before, after, changed } = diffFields(current, patch)
@@ -134,7 +137,7 @@ export async function setBrandStatus(db: Db, actor: Actor, id: ID, status: Recor
   assertCan(actor, 'products.edit')
   await db.transaction(async (tx) => {
     const [current] = await tx.select().from(brands).where(eq(brands.id, id))
-    if (!current) throw new BusinessError('not_found', 'Brand not found.')
+    if (!current) throw new BusinessError('not_found', 'Brand not found.', { key: 'brandNotFound' })
     if (current.status === status) return
     await tx.update(brands).set({ status, updatedAt: Date.now() }).where(eq(brands.id, id))
     await writeAudit(tx, actor, {

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Archive, ArchiveRestore, Download, Eye, ImageOff, MoreHorizontal, Package, Pencil, Percent, Plus, Search, Upload } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/page-header'
 import { Pagination, usePagination } from '@/components/shared/pagination'
@@ -37,6 +38,7 @@ type SortKey = 'name' | 'sku' | 'stock' | 'price' | 'updated'
 
 export function ProductsPage() {
   const catalog = useCatalog()
+  const t = useTranslations('products')
   const router = useRouter()
   const refresh = useRefreshData()
   const canEdit = usePermission('products.edit')
@@ -71,7 +73,7 @@ export function ProductsPage() {
     try {
       // The server leaves purchase prices blank for roles that can't see cost.
       const res = await fetch(`/api/products/export${ids?.length ? `?ids=${ids.join(',')}` : ''}`, { cache: 'no-store' })
-      if (!res.ok) throw new ApiError(res.status, 'export_failed', 'Export failed. Please try again.')
+      if (!res.ok) throw new ApiError(res.status, 'export_failed', t('exportFailed'))
       downloadText(`products-${todayDateOnly()}.csv`, await res.text())
     } catch (e) {
       toast.error(errorMessage(e))
@@ -82,7 +84,7 @@ export function ProductsPage() {
     try {
       await api.patch(`/api/products/${p.id}`, { status: next })
       await refresh()
-      toast.success(`${p.name} ${next === 'archived' ? 'archived' : 'restored'}`)
+      toast.success(next === 'archived' ? t('archivedToast', { name: p.name }) : t('restoredToast', { name: p.name }))
     } catch (e) {
       toast.error(errorMessage(e))
     }
@@ -94,22 +96,23 @@ export function ProductsPage() {
   return (
     <>
       <PageHeader
-        title="Products"
-        description="Products, selling units, prices and barcodes."
+        icon={Package}
+        title={t('title')}
+        description={t('description')}
         actions={
           <>
             {canEdit && canEditPrice && (
               <Button variant="outline" onClick={() => setDialog('import')}>
-                <Upload /> Import CSV
+                <Upload /> {t('importCsv')}
               </Button>
             )}
             <Button variant="outline" onClick={() => void exportCsv()} disabled={catalog.products.length === 0}>
-              <Download /> Export CSV
+              <Download /> {t('exportCsv')}
             </Button>
             {canEdit && (
               <Button asChild>
                 <Link href="/products/new">
-                  <Plus /> Add product
+                  <Plus /> {t('addProduct')}
                 </Link>
               </Button>
             )}
@@ -124,56 +127,56 @@ export function ProductsPage() {
               <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input
                 className="pl-8"
-                placeholder="Search name, SKU or scan barcode…"
+                placeholder={t('searchPlaceholder')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
                   // A scanner types the code then Enter: jump straight to a single match.
                   if (e.key === 'Enter' && rows.length === 1) router.push(productUrl(rows[0].product.id))
                 }}
-                aria-label="Search products"
+                aria-label={t('searchLabel')}
               />
             </div>
             <Tabs value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
               <TabsList>
-                <TabsTrigger value="active">Active</TabsTrigger>
-                <TabsTrigger value="archived">Archived</TabsTrigger>
-                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="active">{t('active')}</TabsTrigger>
+                <TabsTrigger value="archived">{t('archived')}</TabsTrigger>
+                <TabsTrigger value="all">{t('all')}</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <FilterSelect label="Category" value={categoryId} onChange={setCategoryId} options={activeCategories.map((c) => ({ value: c.id, label: categoryPath(c.id, catalog.categoryById) }))} />
-            <FilterSelect label="Brand" value={brandId} onChange={setBrandId} options={activeBrands.map((b) => ({ value: b.id, label: b.name }))} />
+            <FilterSelect label={t('category')} allLabel={t('allCategories')} noneLabel={t('noCategory')} value={categoryId} onChange={setCategoryId} options={activeCategories.map((c) => ({ value: c.id, label: categoryPath(c.id, catalog.categoryById) }))} />
+            <FilterSelect label={t('brand')} allLabel={t('allBrands')} noneLabel={t('noBrand')} value={brandId} onChange={setBrandId} options={activeBrands.map((b) => ({ value: b.id, label: b.name }))} />
             <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
-              <SelectTrigger className="w-40" aria-label="Sort by">
+              <SelectTrigger className="w-40" aria-label={t('sortBy')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="name">Sort: Name</SelectItem>
-                <SelectItem value="sku">Sort: SKU</SelectItem>
-                <SelectItem value="stock">Sort: Lowest stock</SelectItem>
-                <SelectItem value="price">Sort: Price</SelectItem>
-                <SelectItem value="updated">Sort: Recently updated</SelectItem>
+                <SelectItem value="name">{t('sortName')}</SelectItem>
+                <SelectItem value="sku">{t('sortSku')}</SelectItem>
+                <SelectItem value="stock">{t('sortStock')}</SelectItem>
+                <SelectItem value="price">{t('sortPrice')}</SelectItem>
+                <SelectItem value="updated">{t('sortUpdated')}</SelectItem>
               </SelectContent>
             </Select>
             <label className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm">
-              <Checkbox checked={lowOnly} onCheckedChange={(v) => setLowOnly(v === true)} /> Low stock only
+              <Checkbox checked={lowOnly} onCheckedChange={(v) => setLowOnly(v === true)} /> {t('lowStockOnly')}
             </label>
           </div>
           {selected.size > 0 && (
             <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm">
-              <span className="font-medium">{selected.size} selected</span>
+              <span className="font-medium">{t('selectedCount', { count: selected.size })}</span>
               {canEditPrice && (
                 <Button size="sm" variant="outline" onClick={() => setDialog('bulk')}>
-                  <Percent /> Update prices
+                  <Percent /> {t('updatePrices')}
                 </Button>
               )}
               <Button size="sm" variant="outline" onClick={() => void exportCsv([...selected])}>
-                <Download /> Export selected
+                <Download /> {t('exportSelected')}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
-                Clear
+                {t('clear')}
               </Button>
             </div>
           )}
@@ -183,17 +186,17 @@ export function ProductsPage() {
           <div className="p-4">
             <EmptyState
               icon={Package}
-              title={catalog.products.length === 0 ? 'No products yet' : 'No products match'}
+              title={catalog.products.length === 0 ? t('emptyTitle') : t('noMatchTitle')}
               description={
                 catalog.products.length === 0
-                  ? 'Add products one by one, or import a CSV file. Each product can be sold in several units, such as piece and packet.'
-                  : 'Try another search, filter or status.'
+                  ? t('emptyText')
+                  : t('noMatchText')
               }
               action={
                 canEdit && catalog.products.length === 0 ? (
                   <Button asChild>
                     <Link href="/products/new">
-                      <Plus /> Add product
+                      <Plus /> {t('addProduct')}
                     </Link>
                   </Button>
                 ) : undefined
@@ -209,13 +212,13 @@ export function ProductsPage() {
                     <Checkbox
                       checked={allVisibleSelected}
                       onCheckedChange={(v) => visibleIds.forEach((id) => toggle(id, v === true))}
-                      aria-label="Select all on this page"
+                      aria-label={t('selectAllPage')}
                     />
                   </TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead className="hidden lg:table-cell">Category / Brand</TableHead>
-                  <TableHead className="text-right">Stock</TableHead>
-                  <TableHead className="hidden text-right sm:table-cell">Retail price</TableHead>
+                  <TableHead>{t('product')}</TableHead>
+                  <TableHead className="hidden lg:table-cell">{t('categoryBrand')}</TableHead>
+                  <TableHead className="text-right">{t('stock')}</TableHead>
+                  <TableHead className="hidden text-right sm:table-cell">{t('retailPrice')}</TableHead>
                   <TableHead className="w-0" />
                 </TableRow>
               </TableHeader>
@@ -223,7 +226,7 @@ export function ProductsPage() {
                 {pager.rows.map(({ product: p, units, low, sellUnit }) => (
                   <TableRow key={p.id} className="cursor-pointer" onClick={() => router.push(productUrl(p.id))}>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Checkbox checked={selected.has(p.id)} onCheckedChange={(v) => toggle(p.id, v === true)} aria-label={`Select ${p.name}`} />
+                      <Checkbox checked={selected.has(p.id)} onCheckedChange={(v) => toggle(p.id, v === true)} aria-label={t('selectNamed', { name: p.name })} />
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -231,7 +234,7 @@ export function ProductsPage() {
                         <div className="min-w-0">
                           <p className="flex items-center gap-2 truncate font-medium">
                             {p.name}
-                            {p.status === 'archived' && <Badge variant="secondary">Archived</Badge>}
+                            {p.status === 'archived' && <Badge variant="muted">{t('archived')}</Badge>}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {p.sku} · {units.map((u) => u.name).join(', ')}
@@ -245,7 +248,11 @@ export function ProductsPage() {
                     </TableCell>
                     <TableCell className="text-right whitespace-nowrap">
                       <span className={low ? 'font-medium text-destructive' : undefined}>{stockLabel(p, units)}</span>
-                      {low && <p className="text-xs text-destructive">Low stock</p>}
+                      {low && (
+                        <Badge variant="warning" className="mt-1">
+                          {t('lowStock')}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="hidden text-right whitespace-nowrap sm:table-cell">
                       {sellUnit ? (
@@ -258,35 +265,44 @@ export function ProductsPage() {
                       )}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${p.name}`}>
-                            <MoreHorizontal />
+                      <div className="flex items-center justify-end gap-1">
+                        {canEdit && (
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={productEditUrl(p.id)}>
+                              <Pencil /> <span className="hidden md:inline">{t('edit')}</span>
+                            </Link>
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => router.push(productUrl(p.id))}>
-                            <Eye /> View
-                          </DropdownMenuItem>
-                          {canEdit && (
-                            <>
-                              <DropdownMenuItem onSelect={() => router.push(productEditUrl(p.id))}>
-                                <Pencil /> Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              {p.status === 'active' ? (
-                                <DropdownMenuItem onSelect={() => void changeStatus(p, 'archived')}>
-                                  <Archive /> Archive
+                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon-sm" aria-label={t('actionsFor', { name: p.name })}>
+                              <MoreHorizontal />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => router.push(productUrl(p.id))}>
+                              <Eye /> {t('view')}
+                            </DropdownMenuItem>
+                            {canEdit && (
+                              <>
+                                <DropdownMenuItem onSelect={() => router.push(productEditUrl(p.id))}>
+                                  <Pencil /> {t('edit')}
                                 </DropdownMenuItem>
-                              ) : (
-                                <DropdownMenuItem onSelect={() => void changeStatus(p, 'active')}>
-                                  <ArchiveRestore /> Restore
-                                </DropdownMenuItem>
-                              )}
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                                <DropdownMenuSeparator />
+                                {p.status === 'active' ? (
+                                  <DropdownMenuItem onSelect={() => void changeStatus(p, 'archived')}>
+                                    <Archive /> {t('archive')}
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem onSelect={() => void changeStatus(p, 'active')}>
+                                    <ArchiveRestore /> {t('restore')}
+                                  </DropdownMenuItem>
+                                )}
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -312,15 +328,29 @@ export function ProductsPage() {
   )
 }
 
-function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: Array<{ value: string; label: string }> }) {
+function FilterSelect({
+  label,
+  allLabel,
+  noneLabel,
+  value,
+  onChange,
+  options,
+}: {
+  label: string
+  allLabel: string
+  noneLabel: string
+  value: string
+  onChange: (v: string) => void
+  options: Array<{ value: string; label: string }>
+}) {
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="w-44" aria-label={label}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="all">All {label.toLowerCase()}s</SelectItem>
-        <SelectItem value="none">No {label.toLowerCase()}</SelectItem>
+        <SelectItem value="all">{allLabel}</SelectItem>
+        <SelectItem value="none">{noneLabel}</SelectItem>
         {options
           .sort((a, b) => a.label.localeCompare(b.label))
           .map((o) => (

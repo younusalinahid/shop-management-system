@@ -42,18 +42,18 @@ export async function verifyPin(user: Pick<User, 'pinHash' | 'pinSalt'>, pin: st
   return safeEqual(hash, user.pinHash)
 }
 
-export const pinSchema = z.string().min(4, 'PIN must be at least 4 characters').max(32, 'PIN is too long')
+export const pinSchema = z.string().min(4, 'v.pinMin').max(32, 'v.pinMax')
 
 export const usernameSchema = z
   .string()
   .trim()
   .toLowerCase()
-  .min(2, 'Username must be at least 2 characters')
+  .min(2, 'v.usernameMin')
   .max(32)
-  .regex(/^[a-z0-9._-]+$/, 'Use letters, numbers, dot, dash or underscore')
+  .regex(/^[a-z0-9._-]+$/, 'v.usernameChars')
 
 export const newUserSchema = z.object({
-  name: z.string().trim().min(1, 'Name is required').max(80),
+  name: z.string().trim().min(1, 'v.nameRequired').max(80),
   username: usernameSchema,
   role: z.enum(['owner', 'manager', 'cashier']),
   pin: pinSchema,

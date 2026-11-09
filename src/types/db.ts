@@ -78,7 +78,7 @@ export interface User extends Timestamps {
 
 /** Monotonic counters used to generate human-readable document numbers. */
 export interface Counter {
-  id: 'sale' | 'purchase' | 'saleReturn' | 'purchaseReturn' | 'expense' | 'payment' | 'product' | 'barcode'
+  id: 'sale' | 'purchase' | 'saleReturn' | 'purchaseReturn' | 'expense' | 'payment' | 'product' | 'barcode' | 'batch'
   value: number
 }
 

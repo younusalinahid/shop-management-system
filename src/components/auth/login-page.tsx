@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
+import { LanguageSwitcher } from '@/components/layout/language-switcher'
 import { Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,7 +14,6 @@ import { LoadingState } from '@/components/shared/states'
 import type { UserRole } from '@/types/db'
 import { api } from '@/lib/api-client'
 import { errorMessage } from '@/lib/errors'
-import { ROLE_LABELS } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
 
 interface LoginInfo {
@@ -22,6 +23,8 @@ interface LoginInfo {
 
 export function LoginPage() {
   const router = useRouter()
+  const t = useTranslations('auth')
+  const tr = useTranslations('roles')
   const { data } = useQuery({ queryKey: ['login-info'], queryFn: () => api.get<LoginInfo>('/api/auth/users') })
   const users = data?.users
   const [username, setUsername] = useState('')
@@ -55,14 +58,17 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
+    <div className="relative flex min-h-svh items-center justify-center bg-gradient-to-br from-primary/15 via-background to-info/10 p-4">
+      <div className="absolute top-3 right-3">
+        <LanguageSwitcher compact={false} />
+      </div>
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Store className="size-5" aria-hidden />
           </div>
-          <CardTitle className="text-xl">{data?.shopName ?? 'Sign in'}</CardTitle>
-          <CardDescription>Choose your account and enter your PIN</CardDescription>
+          <CardTitle className="text-xl">{data?.shopName ?? t('signIn')}</CardTitle>
+          <CardDescription>{t('chooseAccount')}</CardDescription>
         </CardHeader>
         <CardContent>
           {!users ? (
@@ -70,7 +76,7 @@ export function LoginPage() {
           ) : (
             <form onSubmit={submit} className="space-y-4">
               <fieldset className="space-y-2">
-                <legend className="mb-2 text-sm font-medium">User</legend>
+                <legend className="mb-2 text-sm font-medium">{t('user')}</legend>
                 <div className="grid max-h-56 gap-2 overflow-y-auto">
                   {users.map((u) => (
                     <button
@@ -91,14 +97,14 @@ export function LoginPage() {
                       </span>
                       <span>
                         <span className="block font-medium">{u.name}</span>
-                        <span className="block text-xs text-muted-foreground">{ROLE_LABELS[u.role]}</span>
+                        <span className="block text-xs text-muted-foreground">{tr(u.role)}</span>
                       </span>
                     </button>
                   ))}
                 </div>
               </fieldset>
               <div className="space-y-2">
-                <Label htmlFor="pin">PIN</Label>
+                <Label htmlFor="pin">{t('pin')}</Label>
                 <Input
                   id="pin"
                   ref={pinRef}
@@ -117,7 +123,7 @@ export function LoginPage() {
                 )}
               </div>
               <Button type="submit" className="w-full" disabled={busy || !username || !pin}>
-                {busy ? 'Signing in…' : 'Sign in'}
+                {busy ? t('signingIn') : t('signIn')}
               </Button>
             </form>
           )}

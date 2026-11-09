@@ -1,10 +1,17 @@
-/** Error raised by business rules. `message` is safe to show to the user. */
+/**
+ * Error raised by business rules. `message` (English) is safe to show to the user. `key`/`values`
+ * select a translated message (errors.<key> in messages/*.json); the API answers in the user's language.
+ */
 export class BusinessError extends Error {
   readonly code: string
-  constructor(code: string, message: string) {
+  readonly key: string
+  readonly values?: Record<string, string | number>
+  constructor(code: string, message: string, i18n?: { key?: string; values?: Record<string, string | number> }) {
     super(message)
     this.name = 'BusinessError'
     this.code = code
+    this.key = i18n?.key ?? code
+    this.values = i18n?.values
   }
 }
 

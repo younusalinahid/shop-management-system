@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -22,20 +23,21 @@ export function usePagination<T>(items: readonly T[], pageSize = 25) {
 }
 
 export function Pagination({ page, pageCount, setPage, total, from, to }: Omit<ReturnType<typeof usePagination>, 'rows'>) {
+  const t = useTranslations('common')
   if (total === 0) return null
   return (
     <div className="flex items-center justify-between gap-2 border-t px-3 py-2 text-sm text-muted-foreground">
       <span>
-        {from}–{to} of {total}
+        {t('rangeOf', { from, to, total })}
       </span>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon-sm" disabled={page <= 1} onClick={() => setPage(page - 1)} aria-label="Previous page">
+        <Button variant="ghost" size="icon-sm" disabled={page <= 1} onClick={() => setPage(page - 1)} aria-label={t('previousPage')}>
           <ChevronLeft />
         </Button>
         <span className="px-1">
           {page} / {pageCount}
         </span>
-        <Button variant="ghost" size="icon-sm" disabled={page >= pageCount} onClick={() => setPage(page + 1)} aria-label="Next page">
+        <Button variant="ghost" size="icon-sm" disabled={page >= pageCount} onClick={() => setPage(page + 1)} aria-label={t('nextPage')}>
           <ChevronRight />
         </Button>
       </div>

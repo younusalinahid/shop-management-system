@@ -95,13 +95,13 @@ describe('product service', () => {
   })
 
   it('rejects invalid unit setups', async () => {
-    await expect(createProduct(db, owner, chocolate({ units: [unit('Packet', 35)] }))).rejects.toThrow('base unit')
-    await expect(createProduct(db, owner, chocolate({ units: [unit('Piece', 1), unit('Packet', 0)] }))).rejects.toThrow('Conversion')
-    await expect(createProduct(db, owner, chocolate({ units: [unit('Piece', 1), unit('Packet', 2.5)] }))).rejects.toThrow('Conversion')
-    await expect(createProduct(db, owner, chocolate({ units: [unit('Piece', 1), unit('piece', 12)] }))).rejects.toThrow('twice')
+    await expect(createProduct(db, owner, chocolate({ units: [unit('Packet', 35)] }))).rejects.toThrow('v.exactlyOneBase')
+    await expect(createProduct(db, owner, chocolate({ units: [unit('Piece', 1), unit('Packet', 0)] }))).rejects.toThrow('v.conversionRange')
+    await expect(createProduct(db, owner, chocolate({ units: [unit('Piece', 1), unit('Packet', 2.5)] }))).rejects.toThrow('v.conversionRange')
+    await expect(createProduct(db, owner, chocolate({ units: [unit('Piece', 1), unit('piece', 12)] }))).rejects.toThrow('v.unitTwice')
     await expect(
       createProduct(db, owner, chocolate({ units: [unit('Piece', 1, {}, { canSell: false }), unit('Packet', 35, {}, { canSell: false })] })),
-    ).rejects.toThrow('sellable')
+    ).rejects.toThrow('v.oneSellable')
     expect((await db.select({ n: count() }).from(products))[0].n).toBe(0)
   })
 

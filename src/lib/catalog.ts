@@ -3,7 +3,7 @@ import type { Category, ID } from '@/types/db'
 
 /** Category / brand form and API input. */
 export const catalogEntrySchema = z.object({
-  name: z.string().trim().min(1, 'Name is required').max(80, 'Name is too long'),
+  name: z.string().trim().min(1, 'v.nameRequired').max(80, 'v.nameTooLong'),
   description: z.string().trim().max(300).optional().default(''),
   parentId: z.string().uuid().optional(),
 })

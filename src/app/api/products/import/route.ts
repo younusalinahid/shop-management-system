@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { getDb } from '@/server/db'
 import { json, readBody, requireActor, route } from '@/server/http'
 import { parseProductCsv } from '@/lib/product-csv'
+import { getServerT } from '@/server/i18n'
 import { importProducts } from '@/server/services/product-csv'
 
 /**
@@ -10,11 +11,11 @@ import { importProducts } from '@/server/services/product-csv'
  */
 export const POST = route(async (req) => {
   const actor = await requireActor('products.edit', 'products.edit_price')
-  const { csv } = await readBody(req, z.object({ csv: z.string().max(5 * 1024 * 1024, 'File is larger than 5 MB.') }))
+  const { csv } = await readBody(req, z.object({ csv: z.string().max(5 * 1024 * 1024, 'v.fileTooLarge') }))
   const parsed = parseProductCsv(csv)
   if (parsed.errors.length) {
     return json(
-      { error: { code: 'invalid_csv', message: `${parsed.errors.length} problem(s) found. Nothing was imported.`, issues: parsed.errors } },
+      { error: { code: 'invalid_csv', message: (await getServerT())('errors.csvProblems', { count: parsed.errors.length }), issues: parsed.errors } },
       { status: 400 },
     )
   }

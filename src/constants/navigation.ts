@@ -38,16 +38,20 @@ export interface NavItem {
 }
 
 export interface NavGroup {
+  /** Translation key under navGroups.* */
+  id: string
   label: string
   items: NavItem[]
 }
 
 export const NAV_GROUPS: NavGroup[] = [
   {
+    id: 'overview',
     label: 'Overview',
     items: [{ path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'sales.view', phase: 1 }],
   },
   {
+    id: 'sales',
     label: 'Sales',
     items: [
       { path: '/pos', label: 'POS / New Sale', icon: ShoppingCart, permission: 'pos.sell', phase: 4 },
@@ -56,6 +60,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: 'catalog',
     label: 'Catalog',
     items: [
       { path: '/products', label: 'Products', icon: Package, permission: 'products.view', phase: 2 },
@@ -65,6 +70,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: 'inventory',
     label: 'Inventory',
     items: [
       { path: '/inventory', label: 'Inventory', icon: Boxes, permission: 'inventory.view', phase: 3 },
@@ -73,6 +79,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: 'purchasing',
     label: 'Purchasing',
     items: [
       { path: '/purchases', label: 'Purchases', icon: Truck, permission: 'purchases.manage', phase: 3 },
@@ -80,6 +87,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: 'parties',
     label: 'Parties & Dues',
     items: [
       { path: '/customers', label: 'Customers', icon: Users, permission: 'parties.view', phase: 5 },
@@ -90,6 +98,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: 'money',
     label: 'Money',
     items: [
       { path: '/expenses', label: 'Expenses', icon: Wallet, permission: 'expenses.manage', phase: 6 },
@@ -98,6 +107,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: 'insights',
     label: 'Insights',
     items: [
       { path: '/reports', label: 'Reports', icon: FileBarChart, permission: 'reports.view', phase: 7 },
@@ -105,6 +115,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: 'administration',
     label: 'Administration',
     items: [
       { path: '/users', label: 'Users & Permissions', icon: UserCog, permission: 'users.manage', phase: 8 },
@@ -116,14 +127,20 @@ export const NAV_GROUPS: NavGroup[] = [
 
 export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items)
 
+/** Translation key of a sidebar entry under nav.* (its path without the slash). */
+export const navKey = (path: string) => path.slice(1)
+
 /** Routes that are not sidebar entries, as path patterns (":id" matches one segment). */
 export const SUB_ROUTES: Array<{ path: string; permission: Permission }> = [
   { path: '/products/new', permission: 'products.edit' },
   { path: '/products/:id/edit', permission: 'products.edit' },
   { path: '/products/:id', permission: 'products.view' },
+  { path: '/purchases/new', permission: 'purchases.manage' },
+  { path: '/purchases/:id', permission: 'purchases.manage' },
 ]
 
 export const productUrl = (id: string) => `/products/${encodeURIComponent(id)}`
+export const purchaseUrl = (id: string) => `/purchases/${encodeURIComponent(id)}`
 export const productEditUrl = (id: string) => `/products/${encodeURIComponent(id)}/edit`
 
 const matches = (pattern: string, path: string) => {

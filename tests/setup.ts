@@ -9,6 +9,8 @@ delete process.env.DATABASE_URL
 // next/headers only works inside a real request. Tests get one shared in-memory cookie jar,
 // so calling login, then another route, behaves like one browser.
 const jar = new Map<string, string>()
+// Shared with tests/helpers/cookies.ts so a test can set a cookie as the browser would (e.g. NEXT_LOCALE=bn).
+;(globalThis as { __testCookies?: Map<string, string> }).__testCookies = jar
 vi.mock('next/headers', () => ({
   cookies: async () => ({
     get: (name: string) => (jar.has(name) ? { name, value: jar.get(name)! } : undefined),
@@ -34,3 +36,10 @@ beforeEach(async () => {
     .join(', ')
   await db.execute(sql.raw(`TRUNCATE ${tables} RESTART IDENTITY CASCADE`))
 })
+
+// jsdom lacks scrollIntoView and pointer capture, which cmdk lists and Radix selects call.
+if (typeof Element !== 'undefined') {
+  Element.prototype.scrollIntoView ??= function () {}
+  Element.prototype.hasPointerCapture ??= () => false
+  Element.prototype.releasePointerCapture ??= function () {}
+}
