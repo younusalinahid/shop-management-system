@@ -17,7 +17,7 @@ import {
   productInputSchema,
 } from '@/lib/product'
 import type { Db } from '../db'
-import { brands, categories, productBarcodes, productBatches, products, productUnits, purchaseItems, stockMovements } from '../db/schema'
+import { brands, categories, productBarcodes, productBatches, products, productUnits, purchaseItems, saleItems, stockMovements } from '../db/schema'
 import { type Actor, assertCan, diffFields, writeAudit } from './audit'
 import { listBrands, listCategories } from './catalog'
 import { nextCounter } from './counter'
@@ -147,19 +147,20 @@ async function unitsOf(db: Db, productId: ID): Promise<ProductUnit[]> {
 }
 
 /**
- * Whether the product has stock or any recorded history. Sale and return lines join this check
- * when those tables arrive in later phases.
+ * Whether the product has stock or any recorded history. Return lines join this check when
+ * that table arrives in Phase 5.
  */
 export async function productHasHistory(db: Db, productId: ID): Promise<boolean> {
   const [p] = await db.select({ stockQty: products.stockQty, stockValue: products.stockValue }).from(products).where(eq(products.id, productId))
   if (!p) return false
   if (p.stockQty !== 0 || p.stockValue !== 0) return true
-  const [[m], [b], [pi]] = await Promise.all([
+  const [[m], [b], [pi], [si]] = await Promise.all([
     db.select({ n: count() }).from(stockMovements).where(eq(stockMovements.productId, productId)),
     db.select({ n: count() }).from(productBatches).where(eq(productBatches.productId, productId)),
     db.select({ n: count() }).from(purchaseItems).where(eq(purchaseItems.productId, productId)),
+    db.select({ n: count() }).from(saleItems).where(eq(saleItems.productId, productId)),
   ])
-  return m.n > 0 || b.n > 0 || pi.n > 0
+  return m.n > 0 || b.n > 0 || pi.n > 0 || si.n > 0
 }
 
 // ---------------------------------------------------------------- commands

@@ -37,6 +37,12 @@ const ROUTES: Array<[RegExp, () => Promise<RouteModule>]> = [
   [/^\/api\/purchases$/, () => import('@/app/api/purchases/route')],
   [/^\/api\/purchases\/(?<id>[^/]+)\/cancel$/, () => import('@/app/api/purchases/[id]/cancel/route')],
   [/^\/api\/purchases\/(?<id>[^/]+)$/, () => import('@/app/api/purchases/[id]/route')],
+  [/^\/api\/sales$/, () => import('@/app/api/sales/route')],
+  [/^\/api\/sales\/(?<id>[^/]+)\/cancel$/, () => import('@/app/api/sales/[id]/cancel/route')],
+  [/^\/api\/sales\/(?<id>[^/]+)$/, () => import('@/app/api/sales/[id]/route')],
+  [/^\/api\/held-sales$/, () => import('@/app/api/held-sales/route')],
+  [/^\/api\/held-sales\/(?<id>[^/]+)$/, () => import('@/app/api/held-sales/[id]/route')],
+  [/^\/api\/customers$/, () => import('@/app/api/customers/route')],
 ]
 
 export async function callApi(method: string, path: string, body?: unknown): Promise<Response> {

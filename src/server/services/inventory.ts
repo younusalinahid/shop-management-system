@@ -210,6 +210,48 @@ export async function stockOut(tx: Db, actor: Actor, input: StockOutInput): Prom
   return { value: valueOut, allocations }
 }
 
+/**
+ * Put stock back exactly where an earlier stock out took it from (same batches, same cost), e.g. when a
+ * sale is cancelled. `allocations` is what stockOut returned.
+ */
+export async function restock(
+  tx: Db,
+  actor: Actor,
+  input: { productId: ID; type: StockMovementType; allocations: StockOutResult['allocations']; refType?: string; refId?: string; reason?: string },
+): Promise<void> {
+  const p = await lockProduct(tx, input.productId)
+  const now = Date.now()
+  let qty = p.stockQty
+  let value = p.stockValue
+  for (const a of input.allocations) {
+    if (a.qty <= 0) continue
+    if (a.batchId) {
+      await tx
+        .update(productBatches)
+        .set({ qtyRemaining: sql`${productBatches.qtyRemaining} + ${a.qty}`, status: 'active', updatedAt: now })
+        .where(eq(productBatches.id, a.batchId))
+    }
+    const qtyAfter = qty + a.qty
+    const valueAfter = qtyAfter <= 0 ? 0 : Math.max(0, value) + a.value
+    await tx.insert(stockMovements).values({
+      productId: p.id,
+      batchId: a.batchId ?? null,
+      type: input.type,
+      qtyChange: a.qty,
+      valueChange: valueAfter - value,
+      balanceAfter: qtyAfter,
+      refType: input.refType ?? null,
+      refId: input.refId ?? null,
+      reason: input.reason || null,
+      userId: actor.id,
+      createdAt: now,
+    })
+    qty = qtyAfter
+    value = valueAfter
+  }
+  await tx.update(products).set({ stockQty: qty, stockValue: value, updatedAt: now }).where(eq(products.id, p.id))
+}
+
 /** Convert a typed quantity in one of the product's units to base units, as a translated BusinessError on failure. */
 export function quantityToBase(quantity: string, unit: ProductUnit, product: Product): BaseQty {
   try {

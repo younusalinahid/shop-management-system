@@ -328,3 +328,131 @@ export const purchaseItems = pgTable(
   },
   (t) => [index('purchase_items_purchase_idx').on(t.purchaseId), index('purchase_items_product_idx').on(t.productId)],
 )
+
+// ---------------------------------------------------------------- customers and sales (Phase 4)
+
+/** Minimal customer record for sales on credit; full customer management arrives in Phase 5. */
+export const customers = pgTable(
+  'customers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    phone: text('phone'),
+    address: text('address'),
+    openingBalance: money('opening_balance').notNull().default(0),
+    /** Cached receivable (customer owes the shop). Changed only together with the document that causes it. */
+    balance: money('balance').notNull().default(0),
+    priceMode: text('price_mode', { enum: ['retail', 'wholesale'] }),
+    status: status(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('customers_phone_uq').on(t.phone).where(sql`${t.phone} is not null`), index('customers_name_idx').on(t.name)],
+)
+
+export const sales = pgTable(
+  'sales',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    invoiceNo: text('invoice_no').notNull(),
+    /** Client key per "Complete sale" click; a retried request returns the first result. */
+    idempotencyKey: text('idempotency_key').notNull(),
+    customerId: uuid('customer_id').references(() => customers.id),
+    customerName: text('customer_name').notNull(),
+    customerPhone: text('customer_phone'),
+    cashierId: text('cashier_id').notNull(),
+    cashierName: text('cashier_name').notNull(),
+    priceMode: text('price_mode', { enum: ['retail', 'wholesale'] }).notNull(),
+    status: text('status', { enum: ['completed', 'partially_returned', 'returned', 'cancelled'] }).notNull(),
+    /** Sum of line amounts (price × quantity) before any discount. */
+    subtotal: money('subtotal').notNull(),
+    itemDiscountTotal: money('item_discount_total').notNull(),
+    invoiceDiscount: money('invoice_discount').notNull(),
+    taxTotal: money('tax_total').notNull(),
+    total: money('total').notNull(),
+    /** Money kept for this sale (excludes change given back). */
+    paid: money('paid').notNull(),
+    due: money('due').notNull(),
+    /** Cash handed in beyond the total, given back. */
+    changeGiven: money('change_given').notNull(),
+    /** Cost of goods sold (weighted-average cost at sale time). */
+    cogs: money('cogs').notNull(),
+    note: text('note'),
+    cancelledAt: timestampMs('cancelled_at'),
+    cancelReason: text('cancel_reason'),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('sales_invoice_uq').on(t.invoiceNo),
+    uniqueIndex('sales_idem_uq').on(t.idempotencyKey),
+    index('sales_created_idx').on(t.createdAt),
+    index('sales_customer_idx').on(t.customerId),
+  ],
+)
+
+/** Sale lines keep snapshots (name, unit, price, cost) so later product edits never change an invoice. */
+export const saleItems = pgTable(
+  'sale_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    saleId: uuid('sale_id')
+      .notNull()
+      .references(() => sales.id, { onDelete: 'cascade' }),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id),
+    productName: text('product_name').notNull(),
+    sku: text('sku').notNull(),
+    unitId: uuid('unit_id').notNull(),
+    unitName: text('unit_name').notNull(),
+    unitFactor: integer('unit_factor').notNull(),
+    /** Quantity in the selling unit as an exact decimal string ("1.5"). */
+    quantity: text('quantity').notNull(),
+    baseQty: qty('base_qty').notNull(),
+    unitPrice: money('unit_price').notNull(),
+    /** price × quantity */
+    amount: money('amount').notNull(),
+    /** Line discount typed by the cashier. */
+    discount: money('discount').notNull(),
+    /** Share of the invoice discount. */
+    invoiceDiscount: money('invoice_discount').notNull(),
+    taxRate: integer('tax_rate').notNull(),
+    tax: money('tax').notNull(),
+    /** What the customer pays for this line. */
+    lineTotal: money('line_total').notNull(),
+    costTotal: money('cost_total').notNull(),
+    /** Where the stock came from: [{ batchId?, qty, value }]. Cancelling puts it back there. */
+    allocations: jsonb('allocations').notNull(),
+    returnedBaseQty: qty('returned_base_qty').notNull().default(0),
+    sortOrder: integer('sort_order').notNull(),
+    createdAt: timestampMs('created_at').notNull(),
+  },
+  (t) => [index('sale_items_sale_idx').on(t.saleId), index('sale_items_product_idx').on(t.productId)],
+)
+
+export const salePayments = pgTable(
+  'sale_payments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    saleId: uuid('sale_id')
+      .notNull()
+      .references(() => sales.id, { onDelete: 'cascade' }),
+    method: text('method', { enum: ['cash', 'card', 'bkash', 'nagad', 'rocket', 'bank', 'other'] }).notNull(),
+    /** Amount kept (cash after change). */
+    amount: money('amount').notNull(),
+    /** Amount handed over (cash only can exceed amount). */
+    tendered: money('tendered').notNull(),
+    reference: text('reference'),
+    createdAt: timestampMs('created_at').notNull(),
+  },
+  (t) => [index('sale_payments_sale_idx').on(t.saleId)],
+)
+
+/** Parked carts ("hold sale"), resumed later from the POS. */
+export const heldSales = pgTable('held_sales', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  label: text('label').notNull(),
+  userId: text('user_id').notNull(),
+  userName: text('user_name').notNull(),
+  cart: jsonb('cart').notNull(),
+  ...timestamps,
+})

@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Award, CalendarClock, CalendarX2, Coins, LayoutDashboard, Package, Tags } from 'lucide-react'
+import { AlertTriangle, Award, Banknote, CalendarClock, HandCoins, ReceiptText, TrendingUp, CalendarX2, Coins, LayoutDashboard, Package, Tags } from 'lucide-react'
 import Link from 'next/link'
 import { formatMoney } from '@/lib/money'
 import type { LucideIcon } from 'lucide-react'
@@ -22,11 +22,15 @@ interface DashboardData {
   stockValue: number | null
   expiringBatches: number
   expiredBatches: number
+  todaySales: number
+  todayInvoices: number
+  todayDue: number
+  todayProfit: number | null
 }
 
 /**
- * Real figures from GET /api/dashboard. Sales, profit and cash statistics and the charts arrive in
- * Phase 7, once those modules record data. Inventory figures link to their pages.
+ * Real figures from GET /api/dashboard: today's sales, catalog and inventory. Charts and period
+ * comparisons arrive with the reports in Phase 7.
  */
 export function DashboardPage() {
   const settings = useSettings()
@@ -36,6 +40,18 @@ export function DashboardPage() {
   return (
     <>
       <PageHeader icon={LayoutDashboard} title={t('title')} description={`${settings.shopName} · ${formatDate(Date.now())}`} />
+      <h2 className="mb-3 text-lg font-bold">{t('todayTitle')}</h2>
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Link href="/sales" className="rounded-xl">
+          <Stat icon={Banknote} tone="success" label={t('todaySales')} value={data ? formatMoney(data.todaySales, { fraction: 0 }) : undefined} />
+        </Link>
+        <Link href="/sales" className="rounded-xl">
+          <Stat icon={ReceiptText} tone="info" label={t('todayInvoices')} value={data?.todayInvoices} />
+        </Link>
+        <Stat icon={HandCoins} tone="danger" label={t('todayDue')} value={data ? formatMoney(data.todayDue, { fraction: 0 }) : undefined} />
+        {data?.todayProfit !== null && <Stat icon={TrendingUp} tone="primary" label={t('todayProfit')} value={data ? formatMoney(data.todayProfit ?? 0, { fraction: 0 }) : undefined} />}
+      </div>
+      <h2 className="mb-3 text-lg font-bold">{t('catalogTitle')}</h2>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat icon={Package} tone="primary" label={t('activeProducts')} value={data?.activeProducts} />
         <Stat icon={AlertTriangle} tone="warning" label={t('lowStockProducts')} value={data?.lowStockProducts} />

@@ -2,6 +2,8 @@ import { and, count, eq, gt, lte, sql } from 'drizzle-orm'
 import { can } from '@/lib/permissions'
 import { expiryCounts } from '@/server/services/inventory'
 import { getSettings } from '@/server/services/settings'
+import { salesBetween } from '@/server/services/sale'
+import { endOfDay, startOfDay } from '@/lib/datetime'
 import { getDb } from '@/server/db'
 import { brands, categories, products } from '@/server/db/schema'
 import { json, requireActor, route } from '@/server/http'
@@ -22,6 +24,7 @@ export const GET = route(async () => {
     db.select({ v: sql<string>`coalesce(sum(case when ${products.stockQty} > 0 then ${products.stockValue} else 0 end), 0)` }).from(products),
     expiryCounts(db, settings.expiryWarningDays),
   ])
+  const today = await salesBetween(db, startOfDay(Date.now()), endOfDay(Date.now()))
   return json({
     activeProducts: active.n,
     lowStockProducts: low.n,
@@ -31,5 +34,10 @@ export const GET = route(async () => {
     stockValue: can(actor.role, 'products.view_cost') ? Number(value.v) : null,
     expiringBatches: expiry.expiring,
     expiredBatches: expiry.expired,
+    todaySales: today.total,
+    todayInvoices: today.count,
+    todayDue: today.due,
+    // Gross profit reveals cost; null for roles that cannot see it.
+    todayProfit: can(actor.role, 'reports.profit') ? today.total - today.cogs : null,
   })
 })

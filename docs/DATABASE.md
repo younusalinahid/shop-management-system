@@ -43,4 +43,10 @@ generated into `drizzle/` and committed.
 | purchases | UNIQUE purchase_no, UNIQUE idempotency_key | Totals, paid, due; cancelled, never deleted (migration 0001) |
 | purchase_items | FK purchase (cascade), product, batch | Snapshots: name, unit, factor, decimal quantity, base qty, cost, landed cost |
 
-Sales, returns, customers, payments, cash, shifts and the ledger are added by migrations in their phases.
+| customers | UNIQUE phone (when set) | Cached receivable `balance`; optional price mode (migration 0002) |
+| sales | UNIQUE invoice_no, UNIQUE idempotency_key | Totals, VAT, paid, due, change, COGS; cancelled, never deleted |
+| sale_items | FK sale (cascade), product | Snapshots plus `allocations` (batch, qty, value) used to restock on cancel |
+| sale_payments | FK sale (cascade) | Method, amount kept, amount handed over, reference |
+| held_sales | — | Parked POS carts (JSONB) |
+
+Returns, payments, cash, shifts and the ledger are added by migrations in their phases.

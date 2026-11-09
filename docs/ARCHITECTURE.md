@@ -167,6 +167,22 @@ transaction, so the movement history always sums to the stock (a test checks it)
   that stock was sold or written off.
 - **Suppliers** are minimal for now (name, contact, payable); payments and the ledger come in Phase 5.
 
+## POS and sales (Phase 4)
+
+- **Arithmetic** (`lib/sales.ts`, shared by the POS and the API): `computeSale` = price × quantity, minus the line
+  discount, minus the line's share of the invoice discount (`allocate()`), then VAT per line (contained in the price
+  when `pricesIncludeTax`, added otherwise). `settle` applies payments: change only from cash, the rest is due.
+- **Completing a sale** (`services/sale.ts`): one transaction with the invoice, line snapshots (name, unit, price,
+  cost, batch allocations), `stockOut` per line (FEFO; expired batches skipped unless `allowExpiredSale`; negative
+  stock only with `allowNegativeStock`), payments and the customer's due. A due needs a customer. Only users with
+  `products.edit_price` may sell at a price other than the list price. `idempotencyKey` (one per checkout) makes a
+  double click or retry safe.
+- **Cancelling** (`sales.cancel`) calls `inventory.restock` with the stored allocations, so stock returns to the same
+  batches at the same cost, and removes the customer's due. Invoices are never edited or deleted.
+- **POS** (`components/pos`): the cart keeps typed strings (`cart.ts`) and shows the same totals the server computes.
+  A barcode scan (Enter) adds the product in the barcode's unit. Held carts are stored server-side (`held_sales`).
+  Receipts print through `PrintPortal` at the width in settings (58/80 mm or A4).
+
 ## Languages (English / বাংলা)
 
 `next-intl`, without URL prefixes: the chosen language lives in the `NEXT_LOCALE` cookie, set by the language

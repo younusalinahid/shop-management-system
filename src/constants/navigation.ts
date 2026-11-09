@@ -137,9 +137,11 @@ export const SUB_ROUTES: Array<{ path: string; permission: Permission }> = [
   { path: '/products/:id', permission: 'products.view' },
   { path: '/purchases/new', permission: 'purchases.manage' },
   { path: '/purchases/:id', permission: 'purchases.manage' },
+  { path: '/sales/:id', permission: 'sales.view' },
 ]
 
 export const productUrl = (id: string) => `/products/${encodeURIComponent(id)}`
+export const saleUrl = (id: string) => `/sales/${encodeURIComponent(id)}`
 export const purchaseUrl = (id: string) => `/purchases/${encodeURIComponent(id)}`
 export const productEditUrl = (id: string) => `/products/${encodeURIComponent(id)}/edit`
 
