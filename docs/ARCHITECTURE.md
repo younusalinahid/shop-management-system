@@ -200,6 +200,22 @@ transaction, so the movement history always sums to the stock (a test checks it)
 - Returns use the line price actually paid (after discounts and VAT); the last return of a line takes the exact
   remainder so totals never drift by a poisha.
 
+## Cash, expenses, shifts and profit (Phase 6)
+
+`services/finance.ts`. Money is never recorded twice: the **cash book** (`cashEvents`) is built from the
+documents that moved money: sale payments (and their reversal when a sale is cancelled), due collections, supplier
+payments, purchase payments (treated as cash), return refunds, expenses and manual cash in/out (`cash_movements`).
+Voided payments and expenses drop out.
+
+- **Expenses** have a category (built-in ones are translated; custom text is allowed), a method and a business
+  date. They are voided with a reason, never deleted.
+- **Shifts**: a cashier opens with the counted drawer cash. Expected cash = opening + that cashier's cash events
+  during the shift. Closing stores expected, counted and the difference (short/over). With `requireShiftForSale`,
+  a sale needs an open shift; without `allowMultipleOpenShifts`, only one shift may be open at a time.
+- **Profit and loss** for a date range: sales without VAT − returns = net sales; − cost of goods (sale COGS − cost
+  restocked by returns) = gross profit; − stock loss (value of damaged/lost/expired and counting corrections)
+  − expenses = net profit.
+
 ## Languages (English / বাংলা)
 
 `next-intl`, without URL prefixes: the chosen language lives in the `NEXT_LOCALE` cookie, set by the language

@@ -53,4 +53,8 @@ generated into `drizzle/` and committed.
 | sale_returns / sale_return_items | FK sale, sale item | Value, due adjusted, refund, cost restocked; condition per line |
 | purchase_returns / purchase_return_items | FK purchase, purchase item | Value, payable adjusted, refund received |
 
-Customers and suppliers gained `notes` in migration 0003. Cash, shifts, expenses and the ledger come next.
+| expenses | UNIQUE expense_no, UNIQUE idempotency_key | Category, method, business date; voided, never deleted (migration 0004) |
+| cash_movements | created_at | Manual cash in / out with a reason |
+| shifts | (user, status), opened_at | Opening cash; on close: expected, counted, difference |
+
+Customers and suppliers gained `notes` in migration 0003.

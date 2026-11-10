@@ -603,3 +603,64 @@ export const purchaseReturnItems = pgTable(
   },
   (t) => [index('purchase_return_items_return_idx').on(t.returnId), index('purchase_return_items_item_idx').on(t.purchaseItemId)],
 )
+
+// ---------------------------------------------------------------- cash, expenses and shifts (Phase 6)
+
+export const expenses = pgTable(
+  'expenses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    expenseNo: text('expense_no').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    category: text('category').notNull(),
+    amount: money('amount').notNull(),
+    method: text('method', { enum: methodEnum }).notNull(),
+    /** Business date of the expense (may differ from when it was entered). */
+    expenseDate: date('expense_date', { mode: 'string' }).notNull(),
+    description: text('description'),
+    status: text('status', { enum: ['active', 'void'] }).notNull(),
+    voidReason: text('void_reason'),
+    userId: text('user_id').notNull(),
+    userName: text('user_name').notNull(),
+    createdAt: timestampMs('created_at').notNull(),
+  },
+  (t) => [uniqueIndex('expenses_no_uq').on(t.expenseNo), uniqueIndex('expenses_idem_uq').on(t.idempotencyKey), index('expenses_date_idx').on(t.expenseDate)],
+)
+
+/** Money put into or taken out of the cash drawer that is not a sale, purchase or expense. */
+export const cashMovements = pgTable(
+  'cash_movements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    type: text('type', { enum: ['cash_in', 'cash_out'] }).notNull(),
+    amount: money('amount').notNull(),
+    reason: text('reason').notNull(),
+    userId: text('user_id').notNull(),
+    userName: text('user_name').notNull(),
+    createdAt: timestampMs('created_at').notNull(),
+  },
+  (t) => [index('cash_movements_created_idx').on(t.createdAt)],
+)
+
+/**
+ * A cashier's working session. Expected cash at close = opening cash + every cash movement the
+ * cashier recorded between open and close (sales, collections, refunds, expenses, cash in/out).
+ */
+export const shifts = pgTable(
+  'shifts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id').notNull(),
+    userName: text('user_name').notNull(),
+    status: text('status', { enum: ['open', 'closed'] }).notNull(),
+    openedAt: timestampMs('opened_at').notNull(),
+    openingCash: money('opening_cash').notNull(),
+    closedAt: timestampMs('closed_at'),
+    expectedCash: money('expected_cash'),
+    countedCash: money('counted_cash'),
+    /** counted − expected: negative = cash short, positive = cash over. */
+    difference: money('difference'),
+    note: text('note'),
+  },
+  (t) => [index('shifts_user_idx').on(t.userId, t.status), index('shifts_opened_idx').on(t.openedAt)],
+)

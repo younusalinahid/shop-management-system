@@ -22,6 +22,7 @@ import { customers, heldSales, saleItems, salePayments, sales } from '../db/sche
 import { type Actor, assertCan, writeAudit } from './audit'
 import { formatDocNo, nextCounter } from './counter'
 import { lockProduct, quantityToBase, restock, stockOut, type StockOutResult, unitOfProduct } from './inventory'
+import { assertShiftForSale } from './finance'
 import { getSettings } from './settings'
 
 /**
@@ -90,6 +91,7 @@ export async function createSale(db: Db, actor: Actor, input: SaleInput): Promis
   // A double click or a retried request returns the sale that was already saved.
   const existing = await byIdempotencyKey(db, data.idempotencyKey)
   if (existing) return existing
+  await assertShiftForSale(db, actor)
 
   try {
     const id = await db.transaction(async (tx) => {
