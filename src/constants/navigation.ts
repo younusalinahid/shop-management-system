@@ -56,7 +56,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/pos', label: 'POS / New Sale', icon: ShoppingCart, permission: 'pos.sell', phase: 4 },
       { path: '/sales', label: 'Sales History', icon: ReceiptText, permission: 'sales.view', phase: 4 },
-      { path: '/sales-returns', label: 'Sales Returns', icon: RotateCcw, permission: 'returns.process', phase: 5 },
+      { path: '/sales-returns', label: 'Sales Returns', icon: RotateCcw, permission: 'sales.view', phase: 5 },
     ],
   },
   {
@@ -91,7 +91,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Parties & Dues',
     items: [
       { path: '/customers', label: 'Customers', icon: Users, permission: 'parties.view', phase: 5 },
-      { path: '/suppliers', label: 'Suppliers', icon: Truck, permission: 'parties.view', phase: 5 },
+      { path: '/suppliers', label: 'Suppliers', icon: Truck, permission: 'purchases.manage', phase: 5 },
       { path: '/customer-due', label: 'Customer Due', icon: HandCoins, permission: 'payments.manage', phase: 5 },
       { path: '/supplier-due', label: 'Supplier Due', icon: WalletCards, permission: 'purchases.manage', phase: 5 },
       { path: '/payments', label: 'Payments', icon: CreditCard, permission: 'payments.manage', phase: 5 },
@@ -138,6 +138,10 @@ export const SUB_ROUTES: Array<{ path: string; permission: Permission }> = [
   { path: '/purchases/new', permission: 'purchases.manage' },
   { path: '/purchases/:id', permission: 'purchases.manage' },
   { path: '/sales/:id', permission: 'sales.view' },
+  { path: '/customers/:id', permission: 'parties.view' },
+  { path: '/suppliers/:id', permission: 'purchases.manage' },
+  { path: '/sales-returns/new', permission: 'returns.process' },
+  { path: '/purchase-returns/new', permission: 'purchases.manage' },
 ]
 
 export const productUrl = (id: string) => `/products/${encodeURIComponent(id)}`

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Ban, Printer, ReceiptText } from 'lucide-react'
+import { ArrowLeft, Ban, Printer, ReceiptText, RotateCcw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { PrintableReceipt, printNow, Receipt } from '@/components/pos/receipt'
@@ -30,6 +30,7 @@ export function SaleDetailPage({ id }: { id: string }) {
   const settings = useSettings()
   const canCancel = usePermission('sales.cancel')
   const canProfit = usePermission('reports.profit')
+  const canReturn = usePermission('returns.process')
   const [cancelling, setCancelling] = useState(false)
   const q = useQuery({ queryKey: ['sale', id], queryFn: () => api.get<SaleDetail>(`/api/sales/${id}`) })
 
@@ -53,6 +54,13 @@ export function SaleDetailPage({ id }: { id: string }) {
             <Button variant="outline" onClick={() => printNow()}>
               <Printer /> {t('print')}
             </Button>
+            {canReturn && (s.status === 'completed' || s.status === 'partially_returned') && (
+              <Button variant="outline" asChild>
+                <Link href={`/sales-returns/new?sale=${s.id}`}>
+                  <RotateCcw /> {t('returnItems')}
+                </Link>
+              </Button>
+            )}
             {canCancel && s.status === 'completed' && (
               <Button variant="destructive" onClick={() => setCancelling(true)}>
                 <Ban /> {t('cancel')}

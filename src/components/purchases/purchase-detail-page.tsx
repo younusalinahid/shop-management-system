@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Ban, Printer, Truck } from 'lucide-react'
+import { ArrowLeft, Ban, Printer, Truck, Undo2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/page-header'
@@ -52,6 +52,13 @@ export function PurchaseDetailPage({ id }: { id: string }) {
             <Button variant="outline" onClick={() => window.print()}>
               <Printer /> {t('print')}
             </Button>
+            {(p.status === 'completed' || p.status === 'partially_returned') && (
+              <Button variant="outline" asChild>
+                <Link href={`/purchase-returns/new?purchase=${p.id}`}>
+                  <Undo2 /> {t('returnItems')}
+                </Link>
+              </Button>
+            )}
             {p.status === 'completed' && (
               <Button variant="destructive" onClick={() => setCancelling(true)}>
                 <Ban /> {t('cancel')}

@@ -183,6 +183,23 @@ transaction, so the movement history always sums to the stock (a test checks it)
   A barcode scan (Enter) adds the product in the barcode's unit. Held carts are stored server-side (`held_sales`).
   Receipts print through `PrintPortal` at the width in settings (58/80 mm or A4).
 
+## Customers, suppliers, dues and returns (Phase 5)
+
+- **Balances** are cached on `customers.balance` (they owe the shop) and `suppliers.balance` (the shop owes them).
+  Every document that changes one (sale/purchase due, cancellation, return, payment, void) updates it in the same
+  transaction. `services/payment.ts` rebuilds each party's **ledger** from the source documents; its final balance
+  equals the cached one (tests check this).
+- **Payments** (`payments` table): due collections and supplier payments, never more than the current balance.
+  Mistakes are **voided** (needs `cash.manage`): the balance goes back up and the row stays, marked void.
+- **Sales returns** (`services/returns.ts`) start from the invoice and can never exceed sold − already returned.
+  Resalable items go back to the batches they came from, at the cost they left with (`returnAllocations` follows
+  the line's stored allocations, first in first back). Damaged items are refunded but not restocked. The return's
+  value first clears the customer's due; the rest is refunded (`refund`, with a method).
+- **Purchase returns** take stock out of the purchase's batch at its landed cost (refused if already sold) and first
+  reduce the supplier payable; the rest is a refund received.
+- Returns use the line price actually paid (after discounts and VAT); the last return of a line takes the exact
+  remainder so totals never drift by a poisha.
+
 ## Languages (English / বাংলা)
 
 `next-intl`, without URL prefixes: the chosen language lives in the `NEXT_LOCALE` cookie, set by the language

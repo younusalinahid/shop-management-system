@@ -76,6 +76,7 @@ const toLine = (r: ItemRow): SaleLine => ({
   tax: r.tax,
   lineTotal: r.lineTotal,
   costTotal: r.costTotal,
+  returnedBaseQty: r.returnedBaseQty,
 })
 
 async function byIdempotencyKey(db: Db, key: string): Promise<SaleDetail | null> {

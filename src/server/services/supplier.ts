@@ -17,6 +17,7 @@ export const toSupplier = (r: Row): Supplier => ({
   companyName: r.companyName ?? undefined,
   phone: r.phone ?? undefined,
   address: r.address ?? undefined,
+  notes: r.notes ?? undefined,
 })
 
 export async function listSuppliers(db: Db): Promise<Supplier[]> {
@@ -32,7 +33,7 @@ async function assertNameFree(db: Db, name: string, exceptId?: ID) {
 }
 
 export async function createSupplier(db: Db, actor: Actor, input: SupplierInput): Promise<Supplier> {
-  assertCan(actor, 'purchases.manage')
+  assertCan(actor, 'parties.edit')
   const data = supplierSchema.parse(input)
   return db.transaction(async (tx) => {
     await assertNameFree(tx, data.name)
@@ -44,6 +45,7 @@ export async function createSupplier(db: Db, actor: Actor, input: SupplierInput)
         companyName: data.companyName || null,
         phone: data.phone || null,
         address: data.address || null,
+        notes: data.notes || null,
         openingBalance: data.openingBalance,
         balance: data.openingBalance,
         createdAt: now,
@@ -58,13 +60,13 @@ export async function createSupplier(db: Db, actor: Actor, input: SupplierInput)
 
 /** Contact details only; the opening balance is fixed once purchases may depend on it. */
 export async function updateSupplier(db: Db, actor: Actor, id: ID, input: SupplierInput): Promise<Supplier> {
-  assertCan(actor, 'purchases.manage')
+  assertCan(actor, 'parties.edit')
   const data = supplierSchema.parse(input)
   return db.transaction(async (tx) => {
     const [row] = await tx.select().from(suppliers).where(eq(suppliers.id, id)).for('update')
     if (!row) throw new BusinessError('not_found', 'Supplier not found.', { key: 'supplierNotFound' })
     await assertNameFree(tx, data.name, id)
-    const patch = { name: data.name, companyName: data.companyName || null, phone: data.phone || null, address: data.address || null }
+    const patch = { name: data.name, companyName: data.companyName || null, phone: data.phone || null, address: data.address || null, notes: data.notes || null }
     const diff = diffFields(row, patch)
     if (!diff.changed) return toSupplier(row)
     const now = Date.now()
@@ -75,7 +77,7 @@ export async function updateSupplier(db: Db, actor: Actor, id: ID, input: Suppli
 }
 
 export async function setSupplierStatus(db: Db, actor: Actor, id: ID, status: RecordStatus): Promise<void> {
-  assertCan(actor, 'purchases.manage')
+  assertCan(actor, 'parties.edit')
   await db.transaction(async (tx) => {
     const [row] = await tx.select({ status: suppliers.status }).from(suppliers).where(eq(suppliers.id, id))
     if (!row) throw new BusinessError('not_found', 'Supplier not found.', { key: 'supplierNotFound' })

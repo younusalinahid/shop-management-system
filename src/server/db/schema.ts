@@ -253,6 +253,7 @@ export const suppliers = pgTable(
     companyName: text('company_name'),
     phone: text('phone'),
     address: text('address'),
+    notes: text('notes'),
     openingBalance: money('opening_balance').notNull().default(0),
     /** Cached payable (shop owes the supplier). Changed only together with the document that causes it. */
     balance: money('balance').notNull().default(0),
@@ -343,6 +344,7 @@ export const customers = pgTable(
     /** Cached receivable (customer owes the shop). Changed only together with the document that causes it. */
     balance: money('balance').notNull().default(0),
     priceMode: text('price_mode', { enum: ['retail', 'wholesale'] }),
+    notes: text('notes'),
     status: status(),
     ...timestamps,
   },
@@ -456,3 +458,148 @@ export const heldSales = pgTable('held_sales', {
   cart: jsonb('cart').notNull(),
   ...timestamps,
 })
+
+// ---------------------------------------------------------------- payments and returns (Phase 5)
+
+const methodEnum = ['cash', 'card', 'bkash', 'nagad', 'rocket', 'bank', 'other'] as const
+
+/**
+ * Money received from customers or paid to suppliers outside a sale/purchase: due collections,
+ * supplier payments, and refunds made by returns. Never deleted; a mistake is voided (balance restored).
+ */
+export const payments = pgTable(
+  'payments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    paymentNo: text('payment_no').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    partyType: text('party_type', { enum: ['customer', 'supplier'] }).notNull(),
+    partyId: uuid('party_id').notNull(),
+    partyName: text('party_name').notNull(),
+    kind: text('kind', { enum: ['due_collection', 'supplier_payment', 'customer_refund', 'supplier_refund'] }).notNull(),
+    /** in = money comes into the shop, out = money leaves the shop. */
+    direction: text('direction', { enum: ['in', 'out'] }).notNull(),
+    method: text('method', { enum: methodEnum }).notNull(),
+    amount: money('amount').notNull(),
+    reference: text('reference'),
+    note: text('note'),
+    refType: text('ref_type'),
+    refId: uuid('ref_id'),
+    userId: text('user_id').notNull(),
+    userName: text('user_name').notNull(),
+    voidedAt: timestampMs('voided_at'),
+    voidReason: text('void_reason'),
+    createdAt: timestampMs('created_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('payments_no_uq').on(t.paymentNo),
+    uniqueIndex('payments_idem_uq').on(t.idempotencyKey),
+    index('payments_party_idx').on(t.partyType, t.partyId),
+    index('payments_created_idx').on(t.createdAt),
+  ],
+)
+
+export const saleReturns = pgTable(
+  'sale_returns',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    returnNo: text('return_no').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    saleId: uuid('sale_id')
+      .notNull()
+      .references(() => sales.id),
+    invoiceNo: text('invoice_no').notNull(),
+    customerId: uuid('customer_id').references(() => customers.id),
+    customerName: text('customer_name').notNull(),
+    /** Value of the returned goods (what the customer paid for them). */
+    total: money('total').notNull(),
+    /** Part settled by reducing the customer's due. */
+    dueAdjusted: money('due_adjusted').notNull(),
+    /** Part paid back to the customer. */
+    refund: money('refund').notNull(),
+    refundMethod: text('refund_method', { enum: methodEnum }),
+    /** Cost put back into stock (resalable items only). */
+    costRestocked: money('cost_restocked').notNull(),
+    reason: text('reason').notNull(),
+    userId: text('user_id').notNull(),
+    userName: text('user_name').notNull(),
+    createdAt: timestampMs('created_at').notNull(),
+  },
+  (t) => [uniqueIndex('sale_returns_no_uq').on(t.returnNo), uniqueIndex('sale_returns_idem_uq').on(t.idempotencyKey), index('sale_returns_sale_idx').on(t.saleId)],
+)
+
+export const saleReturnItems = pgTable(
+  'sale_return_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    returnId: uuid('return_id')
+      .notNull()
+      .references(() => saleReturns.id, { onDelete: 'cascade' }),
+    saleItemId: uuid('sale_item_id')
+      .notNull()
+      .references(() => saleItems.id),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id),
+    productName: text('product_name').notNull(),
+    unitName: text('unit_name').notNull(),
+    unitFactor: integer('unit_factor').notNull(),
+    quantity: text('quantity').notNull(),
+    baseQty: qty('base_qty').notNull(),
+    amount: money('amount').notNull(),
+    cost: money('cost').notNull(),
+    condition: text('condition', { enum: ['resalable', 'damaged'] }).notNull(),
+    createdAt: timestampMs('created_at').notNull(),
+  },
+  (t) => [index('sale_return_items_return_idx').on(t.returnId), index('sale_return_items_item_idx').on(t.saleItemId)],
+)
+
+export const purchaseReturns = pgTable(
+  'purchase_returns',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    returnNo: text('return_no').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    purchaseId: uuid('purchase_id')
+      .notNull()
+      .references(() => purchases.id),
+    purchaseNo: text('purchase_no').notNull(),
+    supplierId: uuid('supplier_id').references(() => suppliers.id),
+    supplierName: text('supplier_name').notNull(),
+    total: money('total').notNull(),
+    /** Part settled by reducing what the shop owes the supplier. */
+    payableAdjusted: money('payable_adjusted').notNull(),
+    /** Part the supplier paid back. */
+    refundReceived: money('refund_received').notNull(),
+    refundMethod: text('refund_method', { enum: methodEnum }),
+    reason: text('reason').notNull(),
+    userId: text('user_id').notNull(),
+    userName: text('user_name').notNull(),
+    createdAt: timestampMs('created_at').notNull(),
+  },
+  (t) => [uniqueIndex('purchase_returns_no_uq').on(t.returnNo), uniqueIndex('purchase_returns_idem_uq').on(t.idempotencyKey), index('purchase_returns_purchase_idx').on(t.purchaseId)],
+)
+
+export const purchaseReturnItems = pgTable(
+  'purchase_return_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    returnId: uuid('return_id')
+      .notNull()
+      .references(() => purchaseReturns.id, { onDelete: 'cascade' }),
+    purchaseItemId: uuid('purchase_item_id')
+      .notNull()
+      .references(() => purchaseItems.id),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id),
+    productName: text('product_name').notNull(),
+    unitName: text('unit_name').notNull(),
+    unitFactor: integer('unit_factor').notNull(),
+    quantity: text('quantity').notNull(),
+    baseQty: qty('base_qty').notNull(),
+    amount: money('amount').notNull(),
+    createdAt: timestampMs('created_at').notNull(),
+  },
+  (t) => [index('purchase_return_items_return_idx').on(t.returnId), index('purchase_return_items_item_idx').on(t.purchaseItemId)],
+)

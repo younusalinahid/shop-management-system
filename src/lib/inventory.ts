@@ -49,6 +49,7 @@ export const supplierSchema = z.object({
   companyName: optionalText(120),
   phone: optionalText(30),
   address: optionalText(300),
+  notes: optionalText(500),
   openingBalance: money.optional().default(0),
 })
 export type SupplierInput = z.input<typeof supplierSchema>
@@ -124,6 +125,7 @@ export interface Supplier {
   companyName?: string
   phone?: string
   address?: string
+  notes?: string
   openingBalance: Money
   balance: Money
   status: 'active' | 'archived'
@@ -168,6 +170,7 @@ export interface PurchaseLine {
   lineTotal: Money
   batchNo?: string
   expiryDate?: DateOnly
+  returnedBaseQty: BaseQty
 }
 
 export interface PurchaseDetail extends PurchaseSummary {

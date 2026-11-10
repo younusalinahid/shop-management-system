@@ -4,7 +4,7 @@ import { customerSchema } from '@/lib/sales'
 import { createCustomer, listCustomers } from '@/server/services/customer'
 
 export const GET = route(async () => {
-  await requireActor('pos.sell')
+  await requireActor('parties.view')
   return json({ items: await listCustomers(await getDb()) })
 })
 

@@ -49,4 +49,8 @@ generated into `drizzle/` and committed.
 | sale_payments | FK sale (cascade) | Method, amount kept, amount handed over, reference |
 | held_sales | — | Parked POS carts (JSONB) |
 
-Returns, payments, cash, shifts and the ledger are added by migrations in their phases.
+| payments | UNIQUE payment_no, UNIQUE idempotency_key | Due collections and supplier payments; voided, never deleted (migration 0003) |
+| sale_returns / sale_return_items | FK sale, sale item | Value, due adjusted, refund, cost restocked; condition per line |
+| purchase_returns / purchase_return_items | FK purchase, purchase item | Value, payable adjusted, refund received |
+
+Customers and suppliers gained `notes` in migration 0003. Cash, shifts, expenses and the ledger come next.

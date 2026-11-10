@@ -48,6 +48,7 @@ export const customerSchema = z.object({
   address: optionalText(300),
   openingBalance: money.optional().default(0),
   priceMode: z.enum(['retail', 'wholesale']).optional(),
+  notes: optionalText(500),
 })
 export type CustomerInput = z.input<typeof customerSchema>
 
@@ -151,6 +152,7 @@ export interface Customer {
   openingBalance: Money
   balance: Money
   priceMode?: PriceMode
+  notes?: string
   status: 'active' | 'archived'
   createdAt: number
   updatedAt: number
@@ -201,6 +203,7 @@ export interface SaleLine {
   tax: Money
   lineTotal: Money
   costTotal: Money
+  returnedBaseQty: BaseQty
 }
 
 export interface SalePayment {

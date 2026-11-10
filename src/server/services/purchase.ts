@@ -65,6 +65,7 @@ const toLine = (r: ItemRow, baseUnitName: string): PurchaseLine => ({
   lineTotal: r.lineTotal,
   batchNo: r.batchNo ?? undefined,
   expiryDate: r.expiryDate ?? undefined,
+  returnedBaseQty: r.returnedBaseQty,
 })
 
 async function byIdempotencyKey(db: Db, key: string): Promise<PurchaseDetail | null> {
