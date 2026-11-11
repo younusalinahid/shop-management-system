@@ -1731,6 +1731,14 @@
       "purchases": "Purchases",
       "customers": "Customers",
       "suppliers": "Suppliers"
-    }
+    },
+    "autoTitle": "Automatic backup",
+    "autoText": "While the app is running, a full backup is saved to a folder on this computer once a day. The newest {keep} are kept.",
+    "autoOff": "Automatic backup is off here (it needs the app running on your own computer, not on Vercel).",
+    "autoFolder": "Folder:",
+    "autoNone": "No automatic backup yet. The first one is saved a minute after the app starts.",
+    "autoNow": "Save a backup to the folder now",
+    "autoSaved": "Backup saved to the folder",
+    "autoTip": "To restore one, use \"Choose backup file\" above and pick a file from this folder. For extra safety, copy the folder to a USB drive now and then, or set AUTO_BACKUP_DIR to a OneDrive or Google Drive folder."
   }
 }

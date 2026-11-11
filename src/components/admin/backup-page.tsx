@@ -1,7 +1,8 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { AlertTriangle, DatabaseBackup, Download, FileSpreadsheet, Upload } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlertTriangle, DatabaseBackup, Download, FileSpreadsheet, FolderClock, Upload } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/page-header'
@@ -14,6 +15,15 @@ import { api } from '@/lib/api-client'
 import { downloadText } from '@/lib/csv'
 import { daysBetween, formatDateTime, todayDateOnly, toDateOnly } from '@/lib/datetime'
 import { ApiError, errorMessage } from '@/lib/errors'
+
+interface AutoStatus {
+  enabled: boolean
+  dir: string
+  keep: number
+  files: Array<{ name: string; size: number; createdAt: number }>
+}
+
+const sizeText = (bytes: number) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`)
 
 interface Inspection {
   exportedAt: number
@@ -32,6 +42,8 @@ export function BackupPage() {
   const [error, setError] = useState<string>()
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const qc = useQueryClient()
+  const auto = useQuery({ queryKey: ['backup-auto'], queryFn: () => api.get<AutoStatus>('/api/backup/auto') })
   const last = settings.lastBackupAt
   const overdue = !last || daysBetween(toDateOnly(last), todayDateOnly()) >= settings.autoBackupReminderDays
 
@@ -48,6 +60,19 @@ export function BackupPage() {
     try {
       await save('/api/backup', 'shop-backup.json')
       toast.success(t('backupToast'))
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const autoNow = async () => {
+    setBusy(true)
+    try {
+      await api.post('/api/backup/auto', {})
+      toast.success(t('autoSaved'))
+      await Promise.all([qc.invalidateQueries({ queryKey: ['backup-auto'] }), qc.invalidateQueries({ queryKey: ['settings'] })])
     } catch (e) {
       toast.error(errorMessage(e))
     } finally {
@@ -149,6 +174,40 @@ export function BackupPage() {
             )}
             {error && <p className="text-sm text-destructive">{error}</p>}
           </CardContent>
+        </Card>
+
+        <Card className="xl:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FolderClock className="size-4 text-primary" /> {t('autoTitle')}
+            </CardTitle>
+            <CardDescription>{auto.data?.enabled === false ? t('autoOff') : t('autoText', { keep: auto.data?.keep ?? 30 })}</CardDescription>
+          </CardHeader>
+          {auto.data?.enabled && (
+            <CardContent className="grid gap-3">
+              <p className="text-sm">
+                {t('autoFolder')} <code className="break-all rounded bg-muted px-1.5 py-0.5 text-xs">{auto.data.dir}</code>
+              </p>
+              {auto.data.files.length ? (
+                <ul className="grid gap-1 text-sm">
+                  {auto.data.files.slice(0, 5).map((f) => (
+                    <li key={f.name} className="flex flex-wrap justify-between gap-x-4 rounded-md border px-3 py-1.5">
+                      <span className="break-all font-medium">{f.name}</span>
+                      <span className="text-muted-foreground">
+                        {formatDateTime(f.createdAt)} · {sizeText(f.size)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">{t('autoNone')}</p>
+              )}
+              <Button variant="outline" className="justify-self-start" onClick={() => void autoNow()} disabled={busy}>
+                <FolderClock /> {t('autoNow')}
+              </Button>
+              <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{t('autoTip')}</p>
+            </CardContent>
+          )}
         </Card>
 
         <Card className="xl:col-span-2">

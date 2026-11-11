@@ -13,3 +13,6 @@ coverage
 .env*.local
 # Claude Code local settings (per machine)
 .claude/
+
+# Automatic daily backups (local server only)
+/backups

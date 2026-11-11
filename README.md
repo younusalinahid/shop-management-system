@@ -56,6 +56,16 @@ and `DATABASE_URL` set. Set the timezone in Settings only if the shop is not in 
 
 GitHub Actions (`.github/workflows/ci.yml`) runs typecheck, tests and a production build on every push.
 
+## Automatic backups
+
+When the app runs on your own computer (`npm run dev` or `npm start`), it saves a full backup once a day to
+`./backups` (`shop-backup-auto-YYYYMMDD-HHMM.json`) and keeps the newest 30. The first one is written a minute
+after the server starts. The Backup page shows the folder and recent files and has a "save now" button.
+
+- `AUTO_BACKUP_DIR`: another folder, e.g. `D:ShopBackups` or a OneDrive / Google Drive folder for an off-machine copy.
+- `AUTO_BACKUP_KEEP`: how many to keep. `AUTO_BACKUP=off` turns it off. It is always off on Vercel.
+- Restore one with **Choose backup file** on the Backup page.
+
 ## Security notes
 
 - PINs are stored as PBKDF2-SHA256 hashes. Sessions use a random token in an httpOnly cookie; the
