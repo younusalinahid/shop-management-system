@@ -33,7 +33,8 @@
     "themeDark": "Dark",
     "themeSystem": "System",
     "signOut": "Sign out",
-    "language": "Language"
+    "language": "Language",
+    "changePin": "Change my PIN"
   },
   "navGroups": {
     "overview": "Overview",
@@ -78,10 +79,6 @@
     "name": "Shop Management System",
     "title": "Shop Management System (POS)",
     "description": "POS and shop management for retail and wholesale shops."
-  },
-  "planned": {
-    "title": "Not built yet",
-    "description": "{module} is scheduled for implementation phase {phase}."
   },
   "roles": {
     "owner": "Owner / Admin",
@@ -166,7 +163,8 @@
     "addOneItem": "Add at least one product",
     "tooManyItems": "Too many products in one purchase",
     "itemTwice": "This product and unit is listed twice",
-    "amountPositive": "Amount must be more than zero"
+    "amountPositive": "Amount must be more than zero",
+    "notBackup": "This is not a backup file from this app"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -210,7 +208,9 @@
       "profit": "Profit",
       "purchases": "Purchases",
       "noData": "No data yet."
-    }
+    },
+    "backupOld": "Last backup was on {date}. Download a fresh backup.",
+    "backupNever": "No backup yet. Download one now to keep your data safe."
   },
   "catalog": {
     "category": {
@@ -593,7 +593,16 @@
     "shiftNotFound": "Shift not found.",
     "shiftClosed": "This shift is already closed.",
     "shift_required": "Start your shift before selling (Cashier shifts page).",
-    "unknownReport": "Unknown report."
+    "unknownReport": "Unknown report.",
+    "last_owner": "The shop needs at least one active owner.",
+    "userNotFound": "User not found.",
+    "disableSelf": "You cannot disable your own account.",
+    "wrongPin": "The current PIN is wrong.",
+    "backup_version": "This backup is from another app version ({found}); this app is {expected}.",
+    "backupUnknownTables": "Unknown tables in the backup: {tables}.",
+    "backupNoOwner": "The backup has no active owner, so nobody could sign in.",
+    "notBackup": "This is not a backup file.",
+    "restoreConfirm": "Type RESTORE to confirm."
   },
   "csv": {
     "notYesNo": "{col}: expected yes or no, got “{value}”",
@@ -1628,6 +1637,100 @@
       "stockLoss": "Stock loss",
       "expenses": "Expenses",
       "netProfit": "Net profit"
+    }
+  },
+  "users": {
+    "title": "Users & permissions",
+    "description": "Who can sign in and what each role may do.",
+    "add": "Add user",
+    "name": "Name",
+    "username": "Username",
+    "role": "Role",
+    "pin": "PIN",
+    "newPin": "New PIN",
+    "currentPin": "Current PIN",
+    "repeatPin": "New PIN again",
+    "lastLogin": "Last sign-in",
+    "never": "Never",
+    "you": "you",
+    "disabled": "Disabled",
+    "editNamed": "Edit {name}",
+    "pinNamed": "Reset PIN of {name}",
+    "disableNamed": "Disable {name}",
+    "enableNamed": "Enable {name}",
+    "disabledToast": "{name} can no longer sign in",
+    "enabledToast": "{name} can sign in again",
+    "roleHint": {
+      "owner": "Everything, including users, settings and backups ({count} permissions).",
+      "manager": "Purchases, stock, prices, returns, expenses and reports, but not users or backups ({count} permissions).",
+      "cashier": "Selling, collecting dues and their own shift ({count} permissions)."
+    },
+    "securityNote": "Sign-in uses a PIN, hashed on the server. Keep PINs private and disable accounts of people who leave.",
+    "newTitle": "New user",
+    "editTitle": "Edit user",
+    "formText": "Usernames use letters, numbers, dot, dash or underscore.",
+    "pinTitle": "New PIN for {name}",
+    "pinText": "They will be signed out on other devices.",
+    "nameRequired": "Name is required.",
+    "pinShort": "The PIN needs at least 4 characters.",
+    "pinMismatch": "The new PINs do not match.",
+    "save": "Save",
+    "savedToast": "{name} saved",
+    "pinToast": "New PIN set for {name}",
+    "ownPinTitle": "Change my PIN",
+    "ownPinText": "Enter your current PIN, then the new one twice.",
+    "ownPinToast": "Your PIN was changed"
+  },
+  "audit": {
+    "title": "Audit log",
+    "description": "Every important change: who, when, what changed and why.",
+    "search": "Search action, id or text",
+    "module": "Module",
+    "allModules": "All modules",
+    "user": "User",
+    "allUsers": "All users",
+    "from": "From date",
+    "to": "To date",
+    "emptyTitle": "Nothing recorded for this filter",
+    "time": "Time",
+    "action": "Action",
+    "reason": "Reason",
+    "before": "Before",
+    "after": "After",
+    "noDetails": "No details recorded.",
+    "note": "The audit log is written together with each change. Owners can see it; it cannot be edited from the app."
+  },
+  "backup": {
+    "title": "Backup & restore",
+    "description": "Keep a copy of all shop data, restore it, or export lists for spreadsheets.",
+    "backupTitle": "Download a backup",
+    "backupText": "One file with everything: products, stock, sales, purchases, customers, money and users.",
+    "lastBackup": "Last backup: {date}",
+    "neverBackedUp": "No backup taken yet.",
+    "downloadBackup": "Download backup",
+    "backupToast": "Backup downloaded",
+    "downloadFailed": "Download failed. Please try again.",
+    "storageNote": "Data lives in the shop database on the server. Still keep regular backups on another device or a USB drive, in case of mistakes or a lost hosting account.",
+    "restoreTitle": "Restore a backup",
+    "restoreText": "Replaces ALL current data with the backup. A safety backup of the current data downloads first.",
+    "chooseFile": "Choose backup file",
+    "notJson": "This is not a backup file.",
+    "madeAt": "made {date}",
+    "contains": "{products} products, {sales} sales, {customers} customers, {users} users.",
+    "warning": "Everything entered after this backup will be lost, and everyone will be signed out.",
+    "typeRestore": "Type RESTORE to confirm",
+    "restoreNow": "Restore now",
+    "restoredToast": "Backup restored. Please sign in again.",
+    "csvTitle": "Export to spreadsheet (CSV)",
+    "csvText": "Opens in Excel or Google Sheets. Dates limit sales and purchases.",
+    "from": "From date",
+    "to": "To date",
+    "csv": {
+      "products": "Products",
+      "sales": "Sales",
+      "purchases": "Purchases",
+      "customers": "Customers",
+      "suppliers": "Suppliers"
     }
   }
 }

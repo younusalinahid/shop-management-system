@@ -33,7 +33,7 @@ export interface NavItem {
   label: string
   icon: LucideIcon
   permission: Permission
-  /** Implementation phase; pages from later phases render a clear "not built yet" notice. */
+  /** Implementation phase the module was built in (for reference). */
   phase: number
 }
 

@@ -43,7 +43,19 @@ npm run dev        # http://localhost:5173 → first visit opens the shop setup 
 - Every API route checks the signed-in user's role (`src/lib/permissions.ts`); the UI hiding a button
   is only a convenience.
 - The login screen lists account names and roles (not PIN data) so a shared counter device can pick a user.
-- Audit logs record who changed what. Back up the database regularly (your Postgres host's backups).
+- Audit logs record who changed what. They are operational history in the shop database, not a
+  tamper-proof security record.
+- Back up regularly: **Backup & Restore** downloads the whole shop as one JSON file (owner only), and your
+  Postgres host's own backups are a second safety net.
+
+## What the app covers
+
+Products with flexible units (piece/packet/carton, gram/KG/sack, ML/liter), barcodes and labels; purchases
+with batches and expiry; inventory with stock movements, adjustments and weighted-average valuation; POS with
+barcode scanning, retail/wholesale prices, split payments, held sales and receipts; customers and suppliers
+with dues, payments and ledgers; sales and purchase returns; expenses, cash book, cashier shifts and profit &
+loss; a dashboard and 30 reports with CSV export; users and roles, audit log, backup and restore. The whole UI
+is in English and Bangla.
 
 ## Docs
 

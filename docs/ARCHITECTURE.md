@@ -31,7 +31,6 @@ src/
     (auth)/login, setup   Public pages; redirect away when they don't apply
     (dashboard)/          Signed-in pages; layout.tsx verifies the session on the server
       products/[id], products/[id]/edit, …
-      [module]/           "Not built yet" pages for later-phase modules
       error.tsx           Error boundary; the sidebar stays usable
     api/                  JSON API (Route Handlers)
   server/                 Server-only code (imports 'server-only')
@@ -229,6 +228,25 @@ Voided payments and expenses drop out.
   and charts built from the same report functions (daily and monthly sales, purchases, profit, payment methods,
   best sellers). Figures that reveal cost or profit are `null` for roles that may not see them.
 
+## Users, audit and backup (Phase 8)
+
+- **Users** (`services/users.ts`, owner only via `users.manage`): add, rename, change role, reset PIN, disable.
+  The shop always keeps one active owner; nobody can disable themselves. Disabling a user or resetting their PIN
+  deletes their sessions, so they are signed out everywhere. Anyone can change their own PIN with the current one
+  (`POST /api/auth/pin`). Permissions are enforced on the server for every request (`requireActor` + `assertCan`);
+  the UI only hides what a role cannot use.
+- **Audit log**: `writeAudit` runs inside each change's transaction, so a change and its record commit together.
+  `GET /api/audit` (needs `audit.view`) filters by module, user, date and text; the page shows before/after values.
+  It is an operational history kept in the shop database, not a tamper-proof security record.
+- **Backup** (`services/backup.ts`): `GET /api/backup` downloads every table except sessions as one JSON file with
+  the schema version (last migration tag). `POST /api/backup/inspect` validates a file (app, version, known tables,
+  an active owner) without changing anything. `POST /api/backup/restore` with `confirm: "RESTORE"` truncates and
+  re-inserts everything in one transaction (parents first; nested categories sorted by depth), then everyone signs
+  in again. The page downloads a safety backup of the current data before restoring. On Vercel, request bodies are
+  limited to 4.5 MB, so very large backups (many product images) should be restored with a local run.
+- **CSV exports**: `GET /api/export/<sales|purchases|customers|suppliers>` (and the existing product export);
+  amounts as plain taka, formula-like text quoted.
+
 ## Languages (English / বাংলা)
 
 `next-intl`, without URL prefixes: the chosen language lives in the `NEXT_LOCALE` cookie, set by the language
@@ -246,7 +264,8 @@ is already in the right language and `<html lang>` matches.
 - **Not translated:** data the user types (product, unit, category names) and numbers/prices, which keep English
   digits (`৳1,250.50`) to match barcodes, receipts and keyboard input.
 
-## Modules from later phases
+## Adding a module
 
-`app/(dashboard)/[module]` renders a "not built yet" page for each sidebar entry that has no folder of its own.
-When a module is implemented, give it its own route folder and add its path to `BUILT` in that file.
+Every sidebar entry (`constants/navigation.ts`) has its own route folder under `app/(dashboard)`. A new module
+needs: a nav entry with its permission (and `SUB_ROUTES` for detail pages), a route folder, a component, its API
+routes and service, and its text in both message files.

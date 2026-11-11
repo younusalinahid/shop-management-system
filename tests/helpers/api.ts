@@ -59,6 +59,15 @@ const ROUTES: Array<[RegExp, () => Promise<RouteModule>]> = [
   [/^\/api\/shifts\/(?<id>[^/]+)\/close$/, () => import('@/app/api/shifts/[id]/close/route')],
   [/^\/api\/reports\/profit$/, () => import('@/app/api/reports/profit/route')],
   [/^\/api\/reports\/(?<name>[^/]+)$/, () => import('@/app/api/reports/[name]/route')],
+  [/^\/api\/users$/, () => import('@/app/api/users/route')],
+  [/^\/api\/users\/(?<id>[^/]+)\/pin$/, () => import('@/app/api/users/[id]/pin/route')],
+  [/^\/api\/users\/(?<id>[^/]+)$/, () => import('@/app/api/users/[id]/route')],
+  [/^\/api\/auth\/pin$/, () => import('@/app/api/auth/pin/route')],
+  [/^\/api\/audit$/, () => import('@/app/api/audit/route')],
+  [/^\/api\/backup$/, () => import('@/app/api/backup/route')],
+  [/^\/api\/backup\/inspect$/, () => import('@/app/api/backup/inspect/route')],
+  [/^\/api\/backup\/restore$/, () => import('@/app/api/backup/restore/route')],
+  [/^\/api\/export\/(?<kind>[^/]+)$/, () => import('@/app/api/export/[kind]/route')],
 ]
 
 export async function callApi(method: string, path: string, body?: unknown): Promise<Response> {

@@ -1,6 +1,8 @@
 'use client'
 
-import { LogOut, Menu, Monitor, Moon, Sun, Wifi, WifiOff } from 'lucide-react'
+import { useState } from 'react'
+import { KeyRound, LogOut, Menu, Monitor, Moon, Sun, Wifi, WifiOff } from 'lucide-react'
+import { ChangePinDialog } from '@/components/admin/users-page'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -27,6 +29,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { theme, setTheme } = useThemeStore()
   const t = useTranslations('shell')
   const tr = useTranslations('roles')
+  const [changingPin, setChangingPin] = useState(false)
   const ThemeIcon = theme === 'dark' ? Moon : theme === 'light' ? Sun : Monitor
 
   const handleSignOut = async () => {
@@ -85,12 +88,16 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
               <span className="block text-xs text-muted-foreground">@{user.username}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setChangingPin(true)}>
+              <KeyRound className="size-4" /> {t('changePin')}
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void handleSignOut()}>
               <LogOut className="size-4" /> {t('signOut')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+      {changingPin && <ChangePinDialog onClose={() => setChangingPin(false)} />}
     </header>
   )
 }

@@ -25,9 +25,10 @@ import { PageHeader } from '@/components/shared/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { purchaseUrl, saleUrl } from '@/constants/navigation'
+import { usePermission } from '@/hooks/use-permission'
 import { useSettings } from '@/hooks/use-settings'
 import { api } from '@/lib/api-client'
-import { formatDate, formatDateTime } from '@/lib/datetime'
+import { daysBetween, formatDate, formatDateTime, todayDateOnly, toDateOnly } from '@/lib/datetime'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import type { StockMovementType } from '@/types/db'
@@ -64,11 +65,19 @@ export function DashboardPage() {
   const tm = useTranslations('movement')
   const { data } = useQuery({ queryKey: ['dashboard'], queryFn: () => api.get<DashboardData>('/api/dashboard') })
   const charts = useQuery({ queryKey: ['dashboard-charts'], queryFn: () => api.get<DashboardCharts>('/api/dashboard/charts') })
+  const canBackup = usePermission('backup.manage')
+  const backupDue = canBackup && settings.updatedAt > 0 && (!settings.lastBackupAt || daysBetween(toDateOnly(settings.lastBackupAt), todayDateOnly()) >= settings.autoBackupReminderDays)
   const m = (v: number | null | undefined) => (v === undefined || v === null ? undefined : formatMoney(v, { fraction: 0 }))
 
   return (
     <>
       <PageHeader icon={LayoutDashboard} title={t('title')} description={`${settings.shopName} · ${formatDate(Date.now())}`} />
+      {backupDue && (
+        <Link href="/backup" className="mb-6 flex items-center gap-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm font-medium transition-colors hover:bg-warning/20">
+          <AlertTriangle className="size-5 shrink-0 text-warning-foreground dark:text-warning" aria-hidden />
+          {settings.lastBackupAt ? t('backupOld', { date: formatDate(settings.lastBackupAt) }) : t('backupNever')}
+        </Link>
+      )}
 
       <Section title={t('todayTitle')}>
         <Stat href="/sales" icon={Banknote} tone="success" label={t('todaySales')} value={m(data?.todaySales)} hint={data && t('invoicesCount', { count: data.todayInvoices })} />
