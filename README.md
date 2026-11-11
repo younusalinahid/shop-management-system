@@ -33,8 +33,28 @@ npm run dev        # http://localhost:5173 → first visit opens the shop setup 
 ## Deploying to Vercel
 
 1. Create a Postgres database (e.g. Neon) and copy its **pooled** connection string.
-2. In Vercel → Project → Settings → Environment Variables, set `DATABASE_URL` (see `.env.example`).
-3. Deploy. The `vercel-build` script applies migrations, then builds.
+2. Import the GitHub repository in Vercel. In Project → Settings → Environment Variables, set `DATABASE_URL`
+   (see `.env.example`) for Production (and Preview if you use it).
+3. Deploy. The `vercel-build` script applies migrations (`drizzle-kit migrate`), then builds.
+4. Open the site: the first visit shows the shop setup screen, which creates the owner account.
+
+Other hosts: any Node 20+ server works with `npm ci && npm run db:migrate && npm run build && npm start`
+and `DATABASE_URL` set. Set the timezone in Settings only if the shop is not in Bangladesh.
+
+## Tests
+
+`npm test` runs about 125 tests on an in-memory PostgreSQL (PGlite), so no database is needed:
+
+- **Engines:** money, decimal quantities, unit conversion, barcodes, CSV, dates.
+- **Services:** catalog, inventory (FEFO, weighted-average cost), purchases, sales, returns, dues, cash,
+  shifts, profit and loss, reports, with checks that movements add up to stock and ledgers to balances.
+- **Transactions:** a failure at any step leaves no trace; parallel sales cannot oversell; invoice numbers
+  stay unique.
+- **API:** every route through the real handlers, including permissions, Bangla error messages and
+  backup/restore.
+- **UI:** the product form, purchase form and POS, driven like a user would.
+
+GitHub Actions (`.github/workflows/ci.yml`) runs typecheck, tests and a production build on every push.
 
 ## Security notes
 
