@@ -19,5 +19,8 @@ export default defineConfig({
     // PGlite takes a moment to start and migrate per test file.
     testTimeout: 15_000,
     hookTimeout: 30_000,
+    // Every test file runs its own in-memory PostgreSQL (WebAssembly). Too many at once exhaust memory on
+    // smaller machines (V8 "Zone allocation failed"), so cap the parallel workers.
+    maxWorkers: 3,
   },
 })

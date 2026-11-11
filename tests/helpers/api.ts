@@ -17,6 +17,7 @@ const ROUTES: Array<[RegExp, () => Promise<RouteModule>]> = [
   [/^\/api\/auth\/users$/, () => import('@/app/api/auth/users/route')],
   [/^\/api\/settings$/, () => import('@/app/api/settings/route')],
   [/^\/api\/dashboard$/, () => import('@/app/api/dashboard/route')],
+  [/^\/api\/dashboard\/charts$/, () => import('@/app/api/dashboard/charts/route')],
   [/^\/api\/categories$/, () => import('@/app/api/categories/route')],
   [/^\/api\/categories\/(?<id>[^/]+)$/, () => import('@/app/api/categories/[id]/route')],
   [/^\/api\/brands$/, () => import('@/app/api/brands/route')],
@@ -57,6 +58,7 @@ const ROUTES: Array<[RegExp, () => Promise<RouteModule>]> = [
   [/^\/api\/shifts$/, () => import('@/app/api/shifts/route')],
   [/^\/api\/shifts\/(?<id>[^/]+)\/close$/, () => import('@/app/api/shifts/[id]/close/route')],
   [/^\/api\/reports\/profit$/, () => import('@/app/api/reports/profit/route')],
+  [/^\/api\/reports\/(?<name>[^/]+)$/, () => import('@/app/api/reports/[name]/route')],
 ]
 
 export async function callApi(method: string, path: string, body?: unknown): Promise<Response> {

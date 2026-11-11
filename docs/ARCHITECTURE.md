@@ -216,6 +216,19 @@ Voided payments and expenses drop out.
   restocked by returns) = gross profit; − stock loss (value of damaged/lost/expired and counting corrections)
   − expenses = net profit.
 
+## Dashboard and reports (Phase 7)
+
+- **Reports** (`services/reports.ts`, `GET /api/reports/<name>?from=&to=&period=`): every report returns the same
+  shape (`lib/reports.ts`: columns with a type, rows, totals, a suggested chart), so `components/reports` renders any
+  of them as a table, a Recharts chart and a CSV export. Periods are bucketed in the shop timezone in SQL
+  (`to_char(ts at time zone tz, …)`; grouped by column position because the parameters differ per occurrence).
+  Purchase, valuation and profit reports need `reports.profit`; cost columns are removed for roles without
+  `products.view_cost` (`hideCostColumns`). Add a report: a name in `REPORT_GROUPS`, a `case` in `runReport`, labels
+  under `reports.name` / `reports.col`.
+- **Dashboard** (`GET /api/dashboard`, `/api/dashboard/charts`): today's figures, parties, stock, recent documents,
+  and charts built from the same report functions (daily and monthly sales, purchases, profit, payment methods,
+  best sellers). Figures that reveal cost or profit are `null` for roles that may not see them.
+
 ## Languages (English / বাংলা)
 
 `next-intl`, without URL prefixes: the chosen language lives in the `NEXT_LOCALE` cookie, set by the language
