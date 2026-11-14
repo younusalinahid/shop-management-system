@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useOnline } from '@/hooks/use-online'
 import { useTranslations } from 'next-intl'
+import { ColorPicker } from './color-picker'
 import { LanguageSwitcher } from './language-switcher'
 import { useRouter } from 'next/navigation'
 import { useSessionUser } from '@/hooks/use-session'
@@ -40,6 +41,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
 
   return (
     <header className="no-print sticky top-0 z-30 flex h-16 items-center gap-2 border-b bg-card/90 px-3 shadow-sm shadow-black/[0.03] backdrop-blur sm:px-6">
+      <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-indigo-500 via-pink-500 to-amber-400" aria-hidden />
       <Button variant="ghost" size="icon" className="lg:hidden" onClick={onOpenMenu} aria-label={t('openNavigation')}>
         <Menu className="size-5" />
       </Button>
@@ -54,6 +56,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         {online ? t('online') : t('offline')}
       </span>
       <LanguageSwitcher />
+      <ColorPicker />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" aria-label={t('changeTheme')}>
@@ -73,7 +76,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-9 gap-2 px-2">
-              <span className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-strong text-sm font-bold text-primary-foreground shadow-sm">
+              <span className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-indigo-600 text-sm font-bold text-white shadow-sm">
                 {user.name.slice(0, 1).toUpperCase()}
               </span>
               <span className="hidden text-left sm:block">

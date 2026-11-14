@@ -130,8 +130,8 @@ export async function login(db: Db, username: string, pin: string): Promise<Publ
  * Its credentials are shown on the login screen, but only while an active user with this username exists.
  * Create it with `node scripts/seed-demo.mjs`; disable or delete that user to hide the card.
  */
-export const DEMO_USERNAME = 'demo'
-export const DEMO_PASSWORD = 'demo1234'
+export const DEMO_USERNAME = 'younus ali nahid'
+export const DEMO_PASSWORD = '12345'
 
 export async function getDemoLogin(db: Db): Promise<{ username: string; password: string } | null> {
   const [row] = await db

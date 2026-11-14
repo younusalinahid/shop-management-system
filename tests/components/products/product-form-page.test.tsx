@@ -14,6 +14,7 @@ import { apiJson, mockFetchToApi } from '../../helpers/api'
 const push = vi.fn()
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace: vi.fn(), back: vi.fn() }),
+  usePathname: () => '/',
 }))
 
 let user: SessionUser

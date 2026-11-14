@@ -32,6 +32,11 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "themeSystem": "System",
+    "color": "Color",
+    "colorTitle": "Theme color",
+    "colorCustom": "Pick any color",
+    "colorReset": "Reset to default",
+    "colors": { "indigo": "Indigo", "green": "Green", "rose": "Rose", "orange": "Orange", "sky": "Sky", "purple": "Purple", "teal": "Teal", "red": "Red" },
     "signOut": "Sign out",
     "language": "Language",
     "changePin": "Change my PIN"

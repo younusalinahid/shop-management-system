@@ -14,7 +14,7 @@ import { products, sales } from '@/server/db/schema'
 import en from '../../../messages/en.json'
 import { apiJson, mockFetchToApi } from '../../helpers/api'
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }) }))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }), usePathname: () => '/' }))
 
 let user: SessionUser
 let fetchSpy: ReturnType<typeof mockFetchToApi>
