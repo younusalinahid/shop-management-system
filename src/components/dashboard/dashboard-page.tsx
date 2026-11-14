@@ -31,6 +31,7 @@ import { api } from '@/lib/api-client'
 import { daysBetween, formatDate, formatDateTime, todayDateOnly, toDateOnly } from '@/lib/datetime'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
+import { HUES, type HueName } from '@/lib/section-colors'
 import type { StockMovementType } from '@/types/db'
 import { type DashboardCharts, DashboardChartsView } from './dashboard-charts'
 
@@ -80,29 +81,29 @@ export function DashboardPage() {
       )}
 
       <Section title={t('todayTitle')}>
-        <Stat href="/sales" icon={Banknote} tone="success" label={t('todaySales')} value={m(data?.todaySales)} hint={data && t('invoicesCount', { count: data.todayInvoices })} />
-        <Stat href="/cash" icon={Wallet} tone="info" label={t('todayCollection')} value={m(data?.todayCollection)} />
-        <Stat href="/expenses" icon={ReceiptText} tone="danger" label={t('todayExpenses')} value={m(data?.todayExpenses)} />
-        {data?.todayProfit !== null && <Stat href="/cash" icon={TrendingUp} tone="primary" label={t('todayProfit')} value={m(data?.todayProfit)} hint={data && t('netProfit', { amount: formatMoney(data.todayNetProfit ?? 0, { fraction: 0 }) })} />}
+        <Stat href="/sales" icon={Banknote} tone="emerald" label={t('todaySales')} value={m(data?.todaySales)} hint={data && t('invoicesCount', { count: data.todayInvoices })} />
+        <Stat href="/cash" icon={Wallet} tone="sky" label={t('todayCollection')} value={m(data?.todayCollection)} />
+        <Stat href="/expenses" icon={ReceiptText} tone="rose" label={t('todayExpenses')} value={m(data?.todayExpenses)} />
+        {data?.todayProfit !== null && <Stat href="/cash" icon={TrendingUp} tone="violet" label={t('todayProfit')} value={m(data?.todayProfit)} hint={data && t('netProfit', { amount: formatMoney(data.todayNetProfit ?? 0, { fraction: 0 }) })} />}
       </Section>
 
       <Section title={t('partiesTitle')}>
-        <Stat href="/customers" icon={Users} tone="info" label={t('customers')} value={data?.customers} />
-        <Stat href="/customer-due" icon={HandCoins} tone="danger" label={t('customerDue')} value={m(data?.customerDue)} />
+        <Stat href="/customers" icon={Users} tone="pink" label={t('customers')} value={data?.customers} />
+        <Stat href="/customer-due" icon={HandCoins} tone="rose" label={t('customerDue')} value={m(data?.customerDue)} />
         {data?.supplierDue !== null && (
           <>
-            <Stat href="/suppliers" icon={Truck} tone="primary" label={t('suppliers')} value={data?.suppliers} />
-            <Stat href="/supplier-due" icon={WalletCards} tone="warning" label={t('supplierDue')} value={m(data?.supplierDue)} />
+            <Stat href="/suppliers" icon={Truck} tone="sky" label={t('suppliers')} value={data?.suppliers} />
+            <Stat href="/supplier-due" icon={WalletCards} tone="amber" label={t('supplierDue')} value={m(data?.supplierDue)} />
           </>
         )}
       </Section>
 
       <Section title={t('inventoryTitle')}>
-        <Stat href="/products" icon={Package} tone="primary" label={t('activeProducts')} value={data?.activeProducts} />
-        <Stat href="/inventory" icon={AlertTriangle} tone="warning" label={t('lowStockProducts')} value={data?.lowStockProducts} />
-        <Stat href="/batches" icon={CalendarClock} tone="warning" label={t('expiringBatches')} value={data?.expiringBatches} />
-        <Stat href="/batches" icon={CalendarX2} tone="danger" label={t('expiredBatches')} value={data?.expiredBatches} />
-        {data?.stockValue !== null && <Stat href="/inventory" icon={Coins} tone="success" label={t('stockValue')} value={m(data?.stockValue)} />}
+        <Stat href="/products" icon={Package} tone="violet" label={t('activeProducts')} value={data?.activeProducts} />
+        <Stat href="/inventory" icon={AlertTriangle} tone="amber" label={t('lowStockProducts')} value={data?.lowStockProducts} />
+        <Stat href="/batches" icon={CalendarClock} tone="amber" label={t('expiringBatches')} value={data?.expiringBatches} />
+        <Stat href="/batches" icon={CalendarX2} tone="rose" label={t('expiredBatches')} value={data?.expiredBatches} />
+        {data?.stockValue !== null && <Stat href="/inventory" icon={Coins} tone="teal" label={t('stockValue')} value={m(data?.stockValue)} />}
       </Section>
 
       <h2 className="mt-8 mb-3 text-lg font-bold">{t('chartsTitle')}</h2>
@@ -147,20 +148,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-const TONES = {
-  primary: { tile: 'bg-primary/10 text-primary ring-primary/20', bar: 'bg-primary' },
-  warning: { tile: 'bg-warning/20 text-warning-foreground ring-warning/30 dark:text-warning', bar: 'bg-warning' },
-  info: { tile: 'bg-info/10 text-info ring-info/20', bar: 'bg-info' },
-  success: { tile: 'bg-success/10 text-success ring-success/20', bar: 'bg-success' },
-  danger: { tile: 'bg-destructive/10 text-destructive ring-destructive/20', bar: 'bg-destructive' },
-} as const
+const TONES = HUES
 
-function Stat({ icon: Icon, tone, label, value, hint, href }: { icon: LucideIcon; tone: keyof typeof TONES; label: string; value: number | string | undefined; hint?: string; href?: string }) {
+function Stat({ icon: Icon, tone, label, value, hint, href }: { icon: LucideIcon; tone: HueName; label: string; value: number | string | undefined; hint?: string; href?: string }) {
   const card = (
     <Card className="relative h-full gap-0 overflow-hidden py-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-      <div className={cn('absolute inset-x-0 top-0 h-1', TONES[tone].bar)} aria-hidden />
+      <div className={cn('absolute inset-x-0 top-0 h-1 bg-gradient-to-r', TONES[tone].line)} aria-hidden />
       <CardContent className="flex items-center gap-4 p-5">
-        <div className={cn('flex size-12 shrink-0 items-center justify-center rounded-xl ring-1', TONES[tone].tile)}>
+        <div className={cn('flex size-12 shrink-0 items-center justify-center rounded-xl text-white shadow-md', TONES[tone].solid)}>
           <Icon className="size-6" aria-hidden />
         </div>
         <div className="min-w-0">

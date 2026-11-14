@@ -50,13 +50,15 @@ export function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-svh items-center justify-center bg-gradient-to-br from-primary/15 via-background to-info/10 p-4">
+    <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-500/25 via-fuchsia-400/10 to-sky-400/25 p-4">
+      <div className="pointer-events-none absolute -top-24 -left-24 size-80 rounded-full bg-fuchsia-400/30 blur-3xl" aria-hidden />
+      <div className="pointer-events-none absolute -right-24 -bottom-24 size-96 rounded-full bg-sky-400/30 blur-3xl" aria-hidden />
       <div className="absolute top-3 right-3">
         <LanguageSwitcher compact={false} />
       </div>
-      <Card className="w-full max-w-sm">
+      <Card className="relative w-full max-w-sm border-t-4 border-t-indigo-500 shadow-xl shadow-indigo-500/10">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-fuchsia-400 via-indigo-500 to-sky-500 text-white shadow-md shadow-indigo-500/30">
             <Store className="size-5" aria-hidden />
           </div>
           <CardTitle className="text-xl">{data?.shopName ?? t('signIn')}</CardTitle>

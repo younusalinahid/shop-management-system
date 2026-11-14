@@ -32,6 +32,11 @@
     "themeLight": "লাইট",
     "themeDark": "ডার্ক",
     "themeSystem": "সিস্টেম",
+    "color": "রং",
+    "colorTitle": "থিমের রং",
+    "colorCustom": "যেকোনো রং বেছে নিন",
+    "colorReset": "ডিফল্টে ফিরুন",
+    "colors": { "indigo": "ইন্ডিগো", "green": "সবুজ", "rose": "গোলাপি", "orange": "কমলা", "sky": "আকাশি", "purple": "বেগুনি", "teal": "টিল", "red": "লাল" },
     "signOut": "সাইন আউট",
     "language": "ভাষা",
     "changePin": "আমার পিন বদলান"

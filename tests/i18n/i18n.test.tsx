@@ -10,7 +10,7 @@ import en from '../../messages/en.json'
 import { apiJson } from '../helpers/api'
 import { setTestCookie } from '../helpers/cookies'
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }) }))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }), usePathname: () => '/' }))
 
 type Tree = { [key: string]: string | Tree }
 const flatten = (o: Tree, p = ''): Record<string, string> =>
