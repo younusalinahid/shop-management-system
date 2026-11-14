@@ -1,4 +1,4 @@
-import { asc, count, eq } from 'drizzle-orm'
+import { and, count, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import type { User, UserRole } from '@/types/db'
 import { BusinessError } from '@/lib/errors'
@@ -125,8 +125,18 @@ export async function login(db: Db, username: string, pin: string): Promise<Publ
   return toPublic(user)
 }
 
-/** Accounts shown on the login screen (names and roles only). */
-export async function listActiveUsers(db: Db): Promise<PublicUser[]> {
-  const rows = await db.select().from(users).where(eq(users.status, 'active')).orderBy(asc(users.name))
-  return rows.map(toPublic)
+/**
+ * Public demo account (a Manager, so visitors can look around but not touch users, settings or backups).
+ * Its credentials are shown on the login screen, but only while an active user with this username exists.
+ * Create it with `node scripts/seed-demo.mjs`; disable or delete that user to hide the card.
+ */
+export const DEMO_USERNAME = 'demo'
+export const DEMO_PASSWORD = 'demo1234'
+
+export async function getDemoLogin(db: Db): Promise<{ username: string; password: string } | null> {
+  const [row] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.username, DEMO_USERNAME), eq(users.status, 'active'), eq(users.role, 'manager')))
+  return row ? { username: DEMO_USERNAME, password: DEMO_PASSWORD } : null
 }
