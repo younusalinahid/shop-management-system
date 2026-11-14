@@ -63,7 +63,7 @@ export async function readBody<S extends ZodTypeAny>(req: Request, schema: S): P
 export async function requireActor(...permissions: Permission[]): Promise<Actor & { user: SessionUser }> {
   const user = await getSessionUser()
   if (!user) throw new BusinessError('unauthorized', 'Please sign in again.')
-  const actor = { id: user.id, name: user.name, role: user.role }
+  const actor = { id: user.id, name: user.name, role: user.role, permissions: user.permissions }
   assertCan(actor, ...permissions)
   return { ...actor, user }
 }

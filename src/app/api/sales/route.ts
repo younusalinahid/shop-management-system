@@ -21,7 +21,7 @@ export const GET = route(async (req) => {
   const actor = await requireActor('sales.view')
   const params = Object.fromEntries([...new URL(req.url).searchParams].filter(([, v]) => v !== ''))
   const page = await listSales(await getDb(), query.parse(params))
-  if (!can(actor.role, 'products.view_cost')) page.items = page.items.map((s) => ({ ...s, cogs: 0 }))
+  if (!can(actor, 'products.view_cost')) page.items = page.items.map((s) => ({ ...s, cogs: 0 }))
   return json(page)
 })
 

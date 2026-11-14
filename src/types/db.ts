@@ -73,6 +73,8 @@ export interface User extends Timestamps {
   pinHash: string
   pinSalt: string
   status: RecordStatus
+  /** Owner-picked permissions; null/undefined = the role's defaults. */
+  permissions?: string[] | null
   lastLoginAt?: Timestamp
 }
 

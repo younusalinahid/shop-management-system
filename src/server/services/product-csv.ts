@@ -17,7 +17,7 @@ import { insertProduct } from './product'
 /** Export every product (or the given ids). Purchase prices are blank for roles that can't see cost. */
 export async function exportProductsCsv(db: Db, actor: Actor, opts: { productIds?: ID[] }): Promise<string> {
   assertCan(actor, 'products.view')
-  const includeCost = can(actor.role, 'products.view_cost')
+  const includeCost = can(actor, 'products.view_cost')
   const productRows = await db
     .select()
     .from(products)

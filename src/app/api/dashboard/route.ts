@@ -19,9 +19,9 @@ export const GET = route(async () => {
   const settings = await getSettings(db)
   const now = Date.now()
   const today = todayDateOnly()
-  const seeCost = can(actor.role, 'products.view_cost')
-  const seeProfit = can(actor.role, 'reports.profit')
-  const seePurchases = can(actor.role, 'purchases.manage')
+  const seeCost = can(actor, 'products.view_cost')
+  const seeProfit = can(actor, 'reports.profit')
+  const seePurchases = can(actor, 'purchases.manage')
 
   const [[active], [low], [cats], [brandCount], [value], expiry, [cust], [sup], todaySales, events, pl, recentSales, recentPurchases, recentMoves] = await Promise.all([
     db.select({ n: count() }).from(products).where(eq(products.status, 'active')),

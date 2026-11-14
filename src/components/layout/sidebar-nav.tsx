@@ -12,7 +12,7 @@ import { useSessionUser } from '@/hooks/use-session'
 import { useSettings } from '@/hooks/use-settings'
 
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
-  const { role } = useSessionUser()
+  const user = useSessionUser()
   const settings = useSettings()
   const pathname = usePathname()
   const t = useTranslations()
@@ -32,7 +32,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
       </div>
       <nav aria-label={t('shell.mainNavigation')} className="sidebar-scroll flex-1 overflow-y-auto px-3 py-4">
         {NAV_GROUPS.map((group) => {
-          const items = group.items.filter((i) => can(role, i.permission))
+          const items = group.items.filter((i) => can(user, i.permission))
           if (items.length === 0) return null
           const hue = hueForGroup(group.id)
           return (

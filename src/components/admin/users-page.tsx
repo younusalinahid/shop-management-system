@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -19,7 +20,7 @@ import { useSessionUser } from '@/hooks/use-session'
 import { api } from '@/lib/api-client'
 import { formatDateTime } from '@/lib/datetime'
 import { errorMessage } from '@/lib/errors'
-import { ROLE_PERMISSIONS } from '@/lib/permissions'
+import { PERMISSION_GROUPS, type Permission, ROLE_PERMISSIONS, roleDefaults } from '@/lib/permissions'
 import type { UserRole } from '@/types/db'
 
 interface UserRecord {
@@ -27,6 +28,8 @@ interface UserRecord {
   name: string
   username: string
   role: UserRole
+  permissions: Permission[]
+  customPermissions: boolean
   status: 'active' | 'archived'
   lastLoginAt?: number
   createdAt: number
@@ -94,6 +97,11 @@ export function UsersPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={u.role === 'owner' ? 'default' : u.role === 'manager' ? 'success' : 'muted'}>{tr(u.role)}</Badge>
+                      {u.customPermissions && (
+                        <Badge variant="outline" className="ml-1" title={t('customCount', { count: u.permissions.length })}>
+                          {t('customBadge')}
+                        </Badge>
+                      )}
                       {u.status === 'archived' && (
                         <Badge variant="destructive" className="ml-1">
                           {t('disabled')}
@@ -149,8 +157,28 @@ function UserDialog({ state, onClose, onDone }: { state: { mode: 'new' } | { mod
   const [username, setUsername] = useState('')
   const [role, setRole] = useState<UserRole>(user?.role ?? 'cashier')
   const [pin, setPin] = useState('')
+  const [perms, setPerms] = useState<Set<Permission>>(() => new Set(user ? user.permissions : roleDefaults('cashier')))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+
+  const changeRole = (r: UserRole) => {
+    setRole(r)
+    // A new role starts from that role's defaults; the owner can then tick or untick from there.
+    setPerms(new Set(roleDefaults(r)))
+  }
+  const togglePerm = (p: Permission, on: boolean) =>
+    setPerms((prev) => {
+      const next = new Set(prev)
+      if (on) next.add(p)
+      else next.delete(p)
+      return next
+    })
+  /** null when the ticks match the role's defaults, so the user keeps following the role. */
+  const permissionsToSave = (): Permission[] | null => {
+    if (role === 'owner') return null
+    const defaults = roleDefaults(role)
+    return defaults.length === perms.size && defaults.every((p) => perms.has(p)) ? null : [...perms]
+  }
 
   const submit = async () => {
     setError(undefined)
@@ -158,8 +186,8 @@ function UserDialog({ state, onClose, onDone }: { state: { mode: 'new' } | { mod
     if (state.mode !== 'edit' && pin.length < 4) return setError(t('pinShort'))
     setBusy(true)
     try {
-      if (state.mode === 'new') await api.post('/api/users', { name, username, role, pin })
-      else if (state.mode === 'edit') await api.put(`/api/users/${state.user.id}`, { name, role })
+      if (state.mode === 'new') await api.post('/api/users', { name, username, role, pin, permissions: permissionsToSave() })
+      else if (state.mode === 'edit') await api.put(`/api/users/${state.user.id}`, { name, role, permissions: permissionsToSave() })
       else await api.post(`/api/users/${state.user.id}/pin`, { pin })
       toast.success(state.mode === 'pin' ? t('pinToast', { name: user!.name }) : t('savedToast', { name }))
       onDone()
@@ -172,7 +200,7 @@ function UserDialog({ state, onClose, onDone }: { state: { mode: 'new' } | { mod
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{state.mode === 'new' ? t('newTitle') : state.mode === 'edit' ? t('editTitle') : t('pinTitle', { name: user!.name })}</DialogTitle>
           <DialogDescription>{state.mode === 'pin' ? t('pinText') : t('formText')}</DialogDescription>
@@ -198,7 +226,7 @@ function UserDialog({ state, onClose, onDone }: { state: { mode: 'new' } | { mod
               )}
               <div className="grid gap-1.5">
                 <Label htmlFor={`${ids}-role`}>{t('role')}</Label>
-                <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
+                <Select value={role} onValueChange={(v) => changeRole(v as UserRole)}>
                   <SelectTrigger id={`${ids}-role`} className="w-full">
                     <SelectValue />
                   </SelectTrigger>
@@ -211,6 +239,32 @@ function UserDialog({ state, onClose, onDone }: { state: { mode: 'new' } | { mod
                   </SelectContent>
                 </Select>
               </div>
+              <fieldset className="grid gap-3 rounded-lg border p-3">
+                <legend className="px-1 text-sm font-semibold">{t('permissionsTitle')}</legend>
+                {role === 'owner' ? (
+                  <p className="text-sm text-muted-foreground">{t('permissionsOwner')}</p>
+                ) : (
+                  <>
+                    <p className="text-xs text-muted-foreground">{t('permissionsHint')}</p>
+                    {PERMISSION_GROUPS.map((g) => (
+                      <div key={g.id} className="grid gap-1.5">
+                        <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t(`permGroup.${g.id}`)}</p>
+                        <div className="grid gap-1.5 sm:grid-cols-2">
+                          {g.permissions.map((p) => (
+                            <label key={p} className="flex cursor-pointer items-center gap-2 text-sm">
+                              <Checkbox checked={perms.has(p)} onCheckedChange={(v) => togglePerm(p, v === true)} />
+                              {t(`perm.${p.replace('.', '_')}`)}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={() => setPerms(new Set(roleDefaults(role)))}>
+                      {t('resetDefaults', { role: tr(role) })}
+                    </Button>
+                  </>
+                )}
+              </fieldset>
             </>
           )}
           {state.mode !== 'edit' && (

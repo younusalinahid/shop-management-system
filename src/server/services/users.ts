@@ -1,11 +1,12 @@
 import { and, asc, eq, ne } from 'drizzle-orm'
 import { z } from 'zod'
+import { type Permission, roleDefaults } from '@/lib/permissions'
 import type { UserRole } from '@/types/db'
 import { BusinessError } from '@/lib/errors'
 import type { Db } from '../db'
 import { sessions, users } from '../db/schema'
 import { type Actor, assertCan, writeAudit } from './audit'
-import { hashPin, pinSchema, verifyPin } from './auth'
+import { hashPin, permissionsSchema, pinSchema, verifyPin } from './auth'
 
 /**
  * User management (owner only) and changing your own PIN. The shop always keeps at least one active
@@ -17,6 +18,10 @@ export interface UserRecord {
   name: string
   username: string
   role: UserRole
+  /** What this user can do right now: everything for owners, the custom list if the owner set one, else the role's defaults. */
+  permissions: Permission[]
+  /** True when the owner customised the list (so it no longer follows the role's defaults). */
+  customPermissions: boolean
   status: 'active' | 'archived'
   lastLoginAt?: number
   createdAt: number
@@ -25,12 +30,21 @@ export interface UserRecord {
 export const updateUserSchema = z.object({
   name: z.string().trim().min(1, 'v.nameRequired').max(80),
   role: z.enum(['owner', 'manager', 'cashier']),
+  /** Omit to keep the current list; null = back to the role's defaults; an array = exactly these permissions. */
+  permissions: permissionsSchema.nullable().optional(),
 })
 export const resetPinSchema = z.object({ pin: pinSchema })
 export const changePinSchema = z.object({ currentPin: z.string().min(1, 'v.required'), newPin: pinSchema })
 
 type Row = typeof users.$inferSelect
-const toRecord = (u: Row): UserRecord => ({ id: u.id, name: u.name, username: u.username, role: u.role, status: u.status, lastLoginAt: u.lastLoginAt ?? undefined, createdAt: u.createdAt })
+const toRecord = (u: Row): UserRecord => ({
+  id: u.id,
+  name: u.name,
+  username: u.username,
+  role: u.role,
+  permissions: u.role === 'owner' ? roleDefaults('owner') : ((u.permissions as Permission[] | null) ?? roleDefaults(u.role)),
+  customPermissions: u.role !== 'owner' && u.permissions !== null,
+  status: u.status, lastLoginAt: u.lastLoginAt ?? undefined, createdAt: u.createdAt })
 
 export async function listUsers(db: Db, actor: Actor): Promise<UserRecord[]> {
   assertCan(actor, 'users.manage')
@@ -59,9 +73,18 @@ export async function updateUser(db: Db, actor: Actor, id: string, input: z.inpu
     const u = await lockUser(tx, id)
     if (u.role === 'owner' && data.role !== 'owner' && u.status === 'active') await assertAnotherOwner(tx, id)
     const now = Date.now()
-    const [row] = await tx.update(users).set({ name: data.name, role: data.role, updatedAt: now }).where(eq(users.id, id)).returning()
-    if (u.role !== data.role || u.name !== data.name) {
-      await writeAudit(tx, actor, { action: u.role !== data.role ? 'user.role_change' : 'user.update', module: 'users', entityId: id, before: { name: u.name, role: u.role }, after: data })
+    // Owners always have everything, so a custom list is dropped; otherwise keep it unless the request changes it.
+    const permissions = data.role === 'owner' ? null : data.permissions === undefined ? (u.permissions as string[] | null) : data.permissions
+    const [row] = await tx.update(users).set({ name: data.name, role: data.role, permissions, updatedAt: now }).where(eq(users.id, id)).returning()
+    const samePermissions = JSON.stringify([...(u.permissions ?? [])].sort()) === JSON.stringify([...(permissions ?? [])].sort()) && (u.permissions === null) === (permissions === null)
+    if (u.role !== data.role || u.name !== data.name || !samePermissions) {
+      await writeAudit(tx, actor, {
+        action: u.role !== data.role ? 'user.role_change' : !samePermissions ? 'user.permissions_change' : 'user.update',
+        module: 'users',
+        entityId: id,
+        before: { name: u.name, role: u.role, permissions: u.permissions },
+        after: { name: data.name, role: data.role, permissions },
+      })
     }
     return toRecord(row)
   })

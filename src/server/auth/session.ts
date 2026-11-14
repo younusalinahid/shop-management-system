@@ -1,6 +1,7 @@
 import 'server-only'
 import { and, eq, gt } from 'drizzle-orm'
 import { cookies } from 'next/headers'
+import type { Permission } from '@/lib/permissions'
 import type { UserRole } from '@/types/db'
 import { getDb, type Db } from '../db'
 import { sessions, users } from '../db/schema'
@@ -18,6 +19,8 @@ export interface SessionUser {
   name: string
   username: string
   role: UserRole
+  /** Custom permissions set by the owner, or null for the role's defaults. Read from the database on every request. */
+  permissions: Permission[] | null
 }
 
 async function sha256Hex(value: string): Promise<string> {
@@ -51,11 +54,11 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   if (!token) return null
   const db = await getDb()
   const [row] = await db
-    .select({ id: users.id, name: users.name, username: users.username, role: users.role })
+    .select({ id: users.id, name: users.name, username: users.username, role: users.role, permissions: users.permissions })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .where(and(eq(sessions.id, await sha256Hex(token)), gt(sessions.expiresAt, Date.now()), eq(users.status, 'active')))
-  return row ?? null
+  return row ? { ...row, permissions: row.permissions as Permission[] | null } : null
 }
 
 /** Delete the session row and clear the cookie. */

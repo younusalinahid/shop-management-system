@@ -20,6 +20,6 @@ export const GET = route(async (req) => {
   const db = await getDb()
   const warningDays = f.days ?? (await getSettings(db)).expiryWarningDays
   const rows = await listBatches(db, { ...f, warningDays })
-  const items = can(actor.role, 'products.view_cost') ? rows : rows.map((r) => ({ ...r, costTotal: 0, remainingValue: 0 }))
+  const items = can(actor, 'products.view_cost') ? rows : rows.map((r) => ({ ...r, costTotal: 0, remainingValue: 0 }))
   return json({ items, warningDays })
 })

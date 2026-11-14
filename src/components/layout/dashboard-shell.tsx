@@ -11,7 +11,7 @@ import { AppShell } from './app-shell'
 /** App shell plus the page's role check (the API enforces permissions on every request too). */
 export function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const { role } = useSessionUser()
+  const user = useSessionUser()
   const permission = routePermission(pathname)
-  return <AppShell>{permission && !can(role, permission) ? <ForbiddenPage /> : children}</AppShell>
+  return <AppShell>{permission && !can(user, permission) ? <ForbiddenPage /> : children}</AppShell>
 }

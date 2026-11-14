@@ -11,6 +11,6 @@ export const GET = route<Ctx>(async (_req, { params }) => {
   const actor = await requireActor('sales.view')
   const sale = await getSale(await getDb(), z.string().uuid('v.invalidId').parse((await params).id))
   if (!sale) throw new BusinessError('not_found', 'Sale not found.', { key: 'saleNotFound' })
-  if (can(actor.role, 'products.view_cost')) return json(sale)
+  if (can(actor, 'products.view_cost')) return json(sale)
   return json({ ...sale, cogs: 0, items: sale.items.map((i) => ({ ...i, costTotal: 0 })) })
 })

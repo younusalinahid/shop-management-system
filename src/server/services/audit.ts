@@ -9,6 +9,8 @@ export interface Actor {
   id: string
   name: string
   role: UserRole
+  /** The owner's custom permission list for this user, or null/undefined for the role's defaults. */
+  permissions?: Permission[] | null
 }
 
 export const SYSTEM_ACTOR: Actor = { id: 'system', name: 'System', role: 'owner' }
@@ -16,7 +18,7 @@ export const SYSTEM_ACTOR: Actor = { id: 'system', name: 'System', role: 'owner'
 /** Throw 403 unless the actor's role has every permission. Services call this for sensitive actions. */
 export function assertCan(actor: Actor, ...permissions: Permission[]) {
   for (const p of permissions) {
-    if (!can(actor.role, p)) throw new BusinessError('forbidden', 'You do not have permission to do this.')
+    if (!can(actor, p)) throw new BusinessError('forbidden', 'You do not have permission to do this.')
   }
 }
 

@@ -11,8 +11,8 @@ export const GET = route(async () => {
   const today = todayDateOnly()
   const monthStart = `${today.slice(0, 8)}01`
   const yearAgo = `${addDays(`${today.slice(0, 8)}01`, -335).slice(0, 8)}01`
-  const seeCost = can(actor.role, 'products.view_cost')
-  const seePurchases = can(actor.role, 'purchases.manage')
+  const seeCost = can(actor, 'products.view_cost')
+  const seePurchases = can(actor, 'purchases.manage')
   const [daily, monthly, monthlyPurchases, methods, best] = await Promise.all([
     runReport(db, 'sales-period', { from: addDays(today, -29), to: today, period: 'day' }),
     runReport(db, 'sales-period', { from: yearAgo, to: today, period: 'month' }),

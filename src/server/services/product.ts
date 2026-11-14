@@ -236,7 +236,7 @@ export async function updateProduct(db: Db, actor: Actor, id: ID, input: Product
     if (!currentRow) throw new BusinessError('not_found', 'Product not found.', { key: 'productNotFound' })
     const current = toProduct(currentRow)
     const currentUnits = await unitsOf(tx, id)
-    if (!can(actor.role, 'products.view_cost')) {
+    if (!can(actor, 'products.view_cost')) {
       // This role was sent 0 for purchase prices; keep the stored ones instead of overwriting them.
       const stored = new Map(currentUnits.map((u) => [u.id, u.purchasePrice]))
       data.units = data.units.map((u) => ({ ...u, purchasePrice: stored.get(u.id) ?? 0 }))

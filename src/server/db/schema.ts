@@ -53,6 +53,8 @@ export const users = pgTable(
     role: text('role', { enum: ['owner', 'manager', 'cashier'] }).notNull(),
     pinHash: text('pin_hash').notNull(),
     pinSalt: text('pin_salt').notNull(),
+    /** Permissions the owner picked for this user. null = the role's defaults (see lib/permissions.ts). Ignored for owners. */
+    permissions: jsonb('permissions').$type<string[] | null>(),
     status: status(),
     lastLoginAt: timestampMs('last_login_at'),
     ...timestamps,

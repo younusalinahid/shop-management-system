@@ -46,6 +46,66 @@ describe('users and permissions API', () => {
   })
 })
 
+describe('per-user permissions', () => {
+  it('lets the owner choose what each user can do, and the server enforces it on every request', async () => {
+    await apiJson('POST', '/api/setup', { shopName: 'Rahman Store', name: 'Karim', username: 'owner', pin: '2468' })
+
+    // A manager limited to two permissions (a default manager could also edit products and read the audit log).
+    const created = await apiJson<{ id: string }>('POST', '/api/users', { name: 'Mona', username: 'mona', role: 'manager', pin: '1357', permissions: ['sales.view', 'reports.view'] })
+    expect(created.status).toBe(201)
+    await apiJson('POST', '/api/users', { name: 'Plain', username: 'plain', role: 'manager', pin: '1357' })
+    const listed = async (username: string) => (await apiJson<{ items: UserRecord[] }>('GET', '/api/users')).body.items.find((u) => u.username === username)!
+    const mona = { body: { id: created.body.id } }
+    expect(await listed('mona')).toMatchObject({ customPermissions: true, permissions: ['sales.view', 'reports.view'] })
+    // A user without a custom list follows the role.
+    const plain = await listed('plain')
+    expect(plain.customPermissions).toBe(false)
+    expect(plain.permissions).toContain('audit.view')
+
+    // users.manage can never be handed out, and unknown permissions are rejected.
+    expect((await apiJson('POST', '/api/users', { name: 'Bad', username: 'bad', role: 'manager', pin: '1357', permissions: ['users.manage'] })).status).toBe(400)
+    expect((await apiJson('POST', '/api/users', { name: 'Bad', username: 'bad', role: 'manager', pin: '1357', permissions: ['nope'] })).status).toBe(400)
+
+    await callApi('POST', '/api/auth/logout')
+    await signIn('mona', '1357')
+    expect((await apiJson('GET', '/api/reports/sales-product')).status).toBe(200)
+    expect((await apiJson('GET', '/api/audit')).status).toBe(403)
+    expect((await apiJson('POST', '/api/categories', { name: 'Not allowed' })).status).toBe(403)
+    expect((await apiJson('GET', '/api/users')).status).toBe(403)
+
+    // The owner changes the list; it applies to Mona's existing session on her very next request.
+    await callApi('POST', '/api/auth/logout')
+    await signIn('owner', '2468')
+    const updated = await apiJson<UserRecord>('PUT', `/api/users/${mona.body.id}`, { name: 'Mona', role: 'manager', permissions: ['audit.view', 'products.edit', 'products.view'] })
+    expect(updated.body.permissions).toEqual(['audit.view', 'products.edit', 'products.view'])
+    await callApi('POST', '/api/auth/logout')
+    await signIn('mona', '1357')
+    expect((await apiJson('GET', '/api/audit')).status).toBe(200)
+    expect((await apiJson('POST', '/api/categories', { name: 'Now allowed' })).status).toBe(201)
+    expect((await apiJson('GET', '/api/reports/sales-product')).status).toBe(403)
+
+    // permissions: null puts her back on the manager defaults.
+    await callApi('POST', '/api/auth/logout')
+    await signIn('owner', '2468')
+    const reset = await apiJson<UserRecord>('PUT', `/api/users/${mona.body.id}`, { name: 'Mona', role: 'manager', permissions: null })
+    expect(reset.body.customPermissions).toBe(false)
+    // Leaving permissions out keeps the current list.
+    await apiJson('PUT', `/api/users/${mona.body.id}`, { name: 'Mona', role: 'manager', permissions: ['sales.view'] })
+    const kept = await apiJson<UserRecord>('PUT', `/api/users/${mona.body.id}`, { name: 'Mona B', role: 'manager' })
+    expect(kept.body.permissions).toEqual(['sales.view'])
+
+    // Owners always have everything, whatever list is sent.
+    await apiJson('POST', '/api/users', { name: 'Boss', username: 'boss', role: 'owner', pin: '1357', permissions: [] })
+    expect((await listed('boss')).customPermissions).toBe(false)
+    await callApi('POST', '/api/auth/logout')
+    await signIn('boss', '1357')
+    expect((await apiJson('GET', '/api/users')).status).toBe(200)
+
+    const audit = await apiJson<{ items: AuditRecord[] }>('GET', '/api/audit?module=users')
+    expect(audit.body.items.map((a) => a.action)).toContain('user.permissions_change')
+  })
+})
+
 describe('backup and restore API', () => {
   it('exports everything, restores it atomically, and refuses foreign files', async () => {
     await apiJson('POST', '/api/setup', { shopName: 'Rahman Store', name: 'Karim', username: 'owner', pin: '2468' })

@@ -13,7 +13,7 @@ export const GET = route<Ctx>(async (_req, { params }) => {
   const actor = await requireActor('products.view')
   const detail = await getProductDetail(await getDb(), idSchema.parse((await params).id))
   if (!detail) throw new BusinessError('not_found', 'Product not found.', { key: 'productNotFound' })
-  return json(can(actor.role, 'products.view_cost') ? detail : hideCost(detail))
+  return json(can(actor, 'products.view_cost') ? detail : hideCost(detail))
 })
 
 export const PUT = route<Ctx>(async (req, { params }) => {

@@ -103,7 +103,7 @@ export async function createSale(db: Db, actor: Actor, input: SaleInput): Promis
         if (customer.status !== 'active') throw new BusinessError('archived', `Customer “${customer.name}” is archived.`, { key: 'customerArchived', values: { name: customer.name } })
       }
 
-      const mayChangePrice = can(actor.role, 'products.edit_price')
+      const mayChangePrice = can(actor, 'products.edit_price')
       const lines = []
       for (const item of data.items) {
         const product = await lockProduct(tx, item.productId)

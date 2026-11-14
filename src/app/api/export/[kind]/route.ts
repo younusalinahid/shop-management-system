@@ -14,7 +14,7 @@ export const GET = route<Ctx>(async (req, { params }) => {
   const kind = (await params).kind as ExportKind
   if (!EXPORT_KINDS.includes(kind)) throw new BusinessError('not_found', 'Unknown export.', { key: 'unknownReport' })
   const actor = await requireActor(NEEDS[kind])
-  if (!can(actor.role, 'backup.manage') && !can(actor.role, 'reports.view')) throw new BusinessError('forbidden', 'You do not have permission to do this.')
+  if (!can(actor, 'backup.manage') && !can(actor, 'reports.view')) throw new BusinessError('forbidden', 'You do not have permission to do this.')
   const f = z.object({ from: date.optional(), to: date.optional() }).parse(Object.fromEntries([...new URL(req.url).searchParams].filter(([, v]) => v !== '')))
   const csv = await exportCsv(await getDb(), kind, f)
   return new Response(csv, {

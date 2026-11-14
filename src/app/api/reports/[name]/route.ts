@@ -17,9 +17,9 @@ export const GET = route<Ctx>(async (req, { params }) => {
   const name = (await params).name as ReportName
   if (!REPORT_NAMES.includes(name)) throw new BusinessError('not_found', 'Unknown report.', { key: 'unknownReport' })
   // Purchase, valuation and profit reports reveal cost.
-  if (COST_REPORTS.includes(name) && !can(actor.role, 'reports.profit')) throw new BusinessError('forbidden', 'You do not have permission to do this.')
+  if (COST_REPORTS.includes(name) && !can(actor, 'reports.profit')) throw new BusinessError('forbidden', 'You do not have permission to do this.')
   const f = query.parse(Object.fromEntries([...new URL(req.url).searchParams].filter(([, v]) => v !== '')))
   const today = todayDateOnly()
   const result = await runReport(await getDb(), name, { from: f.from ?? today, to: f.to ?? f.from ?? today, period: f.period })
-  return json(can(actor.role, 'products.view_cost') ? result : hideCostColumns(result))
+  return json(can(actor, 'products.view_cost') ? result : hideCostColumns(result))
 })

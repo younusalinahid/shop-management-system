@@ -2,6 +2,7 @@ import { and, count, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import type { User, UserRole } from '@/types/db'
 import { BusinessError } from '@/lib/errors'
+import { GRANTABLE_PERMISSIONS, type Permission } from '@/lib/permissions'
 import type { Db } from '../db'
 import { users } from '../db/schema'
 import { type Actor, assertCan, SYSTEM_ACTOR, writeAudit } from './audit'
@@ -52,11 +53,19 @@ export const usernameSchema = z
   .max(32)
   .regex(/^[a-z0-9._-]+$/, 'v.usernameChars')
 
+/** What the owner may switch on for a user. `users.manage` is not in the list: it stays with owners. */
+export const permissionsSchema = z
+  .array(z.enum(GRANTABLE_PERMISSIONS as [Permission, ...Permission[]]))
+  .max(GRANTABLE_PERMISSIONS.length)
+  .transform((list) => [...new Set(list)])
+
 export const newUserSchema = z.object({
   name: z.string().trim().min(1, 'v.nameRequired').max(80),
   username: usernameSchema,
   role: z.enum(['owner', 'manager', 'cashier']),
   pin: pinSchema,
+  /** Custom permissions for a manager or cashier. Leave out (or null) for the role's defaults. Owners always have everything. */
+  permissions: permissionsSchema.nullable().optional(),
 })
 export type NewUserInput = z.input<typeof newUserSchema>
 
@@ -84,12 +93,13 @@ async function insertUser(db: Db, actor: Actor, input: NewUserInput): Promise<Pu
         role: data.role as UserRole,
         pinHash: hash,
         pinSalt: salt,
+        permissions: data.role === 'owner' ? null : (data.permissions ?? null),
         status: 'active',
         createdAt: now,
         updatedAt: now,
       })
       .returning()
-    await writeAudit(tx, actor, { action: 'user.create', module: 'users', entityId: user.id, after: toPublic(user) })
+    await writeAudit(tx, actor, { action: 'user.create', module: 'users', entityId: user.id, after: { ...toPublic(user), permissions: user.permissions } })
     return toPublic(user)
   })
 }

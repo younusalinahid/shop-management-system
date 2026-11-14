@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, type ReactNode } from 'react'
+import type { Permission } from '@/lib/permissions'
 import type { UserRole } from '@/types/db'
 
 export interface SessionUser {
@@ -8,6 +9,7 @@ export interface SessionUser {
   name: string
   username: string
   role: UserRole
+  permissions: Permission[] | null
 }
 
 const SessionContext = createContext<SessionUser | null>(null)

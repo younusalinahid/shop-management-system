@@ -19,6 +19,6 @@ export const GET = route(async (req) => {
   const params = Object.fromEntries([...new URL(req.url).searchParams].filter(([, v]) => v !== ''))
   const f = query.parse(params)
   const page = await listMovements(await getDb(), { ...f, type: f.type as never })
-  if (!can(actor.role, 'products.view_cost')) page.items = page.items.map((m) => ({ ...m, valueChange: 0 }))
+  if (!can(actor, 'products.view_cost')) page.items = page.items.map((m) => ({ ...m, valueChange: 0 }))
   return json(page)
 })

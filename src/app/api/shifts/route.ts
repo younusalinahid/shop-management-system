@@ -12,7 +12,7 @@ export const GET = route(async (req) => {
   const actor = await requireActor('shifts.own')
   const f = z.object({ page: z.coerce.number().int().min(1).optional() }).parse(paramsOf(req))
   const db = await getDb()
-  const [history, current] = await Promise.all([listShifts(db, { page: f.page, userId: can(actor.role, 'shifts.all') ? undefined : actor.id }), currentShift(db, actor.id)])
+  const [history, current] = await Promise.all([listShifts(db, { page: f.page, userId: can(actor, 'shifts.all') ? undefined : actor.id }), currentShift(db, actor.id)])
   return json({ ...history, current })
 })
 

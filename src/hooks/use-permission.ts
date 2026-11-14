@@ -3,5 +3,5 @@ import { useOptionalSessionUser } from './use-session'
 
 /** UI-side permission check (hides controls). The API re-checks every request. */
 export function usePermission(permission: Permission): boolean {
-  return can(useOptionalSessionUser()?.role, permission)
+  return can(useOptionalSessionUser(), permission)
 }
