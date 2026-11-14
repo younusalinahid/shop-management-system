@@ -38,9 +38,12 @@ describe('auth API', () => {
     expect((await apiJson('GET', '/api/auth/me')).status).toBe(401)
     expect((await apiJson('GET', '/api/products')).status).toBe(401)
 
-    const users = await apiJson<{ shopName: string; users: Array<Record<string, unknown>> }>('GET', '/api/auth/users')
-    expect(users.body.shopName).toBe('Rahman Store')
-    expect(JSON.stringify(users.body)).not.toMatch(/pin/i)
+    const info = await apiJson<{ shopName: string; demo: unknown }>('GET', '/api/auth/users')
+    expect(info.body.shopName).toBe('Rahman Store')
+    // Real accounts are never listed on the public login screen, and there is no demo user here.
+    expect(info.body).not.toHaveProperty('users')
+    expect(info.body.demo).toBeNull()
+    expect(JSON.stringify(info.body)).not.toMatch(/owner|pin/i)
 
     expect((await apiJson('POST', '/api/auth/login', { username: 'owner', pin: '0000' })).status).toBe(400)
     expect((await apiJson('POST', '/api/auth/login', { username: 'owner', pin: '2468' })).status).toBe(200)

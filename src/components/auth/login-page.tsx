@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -10,32 +10,24 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { LoadingState } from '@/components/shared/states'
-import type { UserRole } from '@/types/db'
 import { api } from '@/lib/api-client'
 import { errorMessage } from '@/lib/errors'
-import { cn } from '@/lib/utils'
 
 interface LoginInfo {
   shopName: string
-  users: Array<{ id: string; name: string; username: string; role: UserRole }>
+  demo: { username: string; password: string } | null
 }
 
 export function LoginPage() {
   const router = useRouter()
   const t = useTranslations('auth')
-  const tr = useTranslations('roles')
   const { data } = useQuery({ queryKey: ['login-info'], queryFn: () => api.get<LoginInfo>('/api/auth/users') })
-  const users = data?.users
+  const demo = data?.demo
   const [username, setUsername] = useState('')
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const pinRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (users?.length === 1 && !username) setUsername(users[0].username)
-  }, [users, username])
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -68,64 +60,69 @@ export function LoginPage() {
             <Store className="size-5" aria-hidden />
           </div>
           <CardTitle className="text-xl">{data?.shopName ?? t('signIn')}</CardTitle>
-          <CardDescription>{t('chooseAccount')}</CardDescription>
+          <CardDescription>{t('enterCredentials')}</CardDescription>
         </CardHeader>
         <CardContent>
-          {!users ? (
-            <LoadingState />
-          ) : (
-            <form onSubmit={submit} className="space-y-4">
-              <fieldset className="space-y-2">
-                <legend className="mb-2 text-sm font-medium">{t('user')}</legend>
-                <div className="grid max-h-56 gap-2 overflow-y-auto">
-                  {users.map((u) => (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() => {
-                        setUsername(u.username)
-                        pinRef.current?.focus()
-                      }}
-                      aria-pressed={username === u.username}
-                      className={cn(
-                        'flex items-center gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors hover:bg-accent',
-                        username === u.username && 'border-primary bg-accent',
-                      )}
-                    >
-                      <span className="flex size-8 items-center justify-center rounded-full bg-primary/15 font-semibold text-primary">
-                        {u.name.slice(0, 1).toUpperCase()}
-                      </span>
-                      <span>
-                        <span className="block font-medium">{u.name}</span>
-                        <span className="block text-xs text-muted-foreground">{tr(u.role)}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-              <div className="space-y-2">
-                <Label htmlFor="pin">{t('pin')}</Label>
-                <Input
-                  id="pin"
-                  ref={pinRef}
-                  type="password"
-                  autoComplete="current-password"
-                  autoFocus
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  aria-invalid={!!error}
-                  aria-describedby={error ? 'login-error' : undefined}
-                />
-                {error && (
-                  <p id="login-error" role="alert" className="text-sm text-destructive">
-                    {error}
-                  </p>
-                )}
-              </div>
-              <Button type="submit" className="w-full" disabled={busy || !username || !pin}>
-                {busy ? t('signingIn') : t('signIn')}
+          <form onSubmit={submit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">{t('username')}</Label>
+              <Input
+                id="username"
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                autoFocus
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pin">{t('pin')}</Label>
+              <Input
+                id="pin"
+                ref={pinRef}
+                type="password"
+                autoComplete="current-password"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                aria-invalid={!!error}
+                aria-describedby={error ? 'login-error' : undefined}
+              />
+              {error && (
+                <p id="login-error" role="alert" className="text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+            </div>
+            <Button type="submit" className="w-full" disabled={busy || !username || !pin}>
+              {busy ? t('signingIn') : t('signIn')}
+            </Button>
+          </form>
+          {demo && (
+            <div className="mt-5 rounded-md border border-dashed bg-muted/40 p-3 text-sm">
+              <p className="font-medium">{t('demoTitle')}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t('demoHint')}</p>
+              <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                <dt className="text-muted-foreground">{t('username')}</dt>
+                <dd className="font-mono">{demo.username}</dd>
+                <dt className="text-muted-foreground">{t('pin')}</dt>
+                <dd className="font-mono">{demo.password}</dd>
+              </dl>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full"
+                onClick={() => {
+                  setUsername(demo.username)
+                  setPin(demo.password)
+                  setError(null)
+                  pinRef.current?.focus()
+                }}
+              >
+                {t('demoFill')}
               </Button>
-            </form>
+            </div>
           )}
         </CardContent>
       </Card>
