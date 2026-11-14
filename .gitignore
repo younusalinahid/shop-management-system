@@ -16,3 +16,6 @@ coverage
 
 # Automatic daily backups (local server only)
 /backups
+
+.vercel
+.env*
