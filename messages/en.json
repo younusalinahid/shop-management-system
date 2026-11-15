@@ -48,7 +48,10 @@
     },
     "signOut": "Sign out",
     "language": "Language",
-    "changePin": "Change my PIN"
+    "changePin": "Change my PIN",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "live": "Live"
   },
   "navGroups": {
     "overview": "Overview",
@@ -123,7 +126,30 @@
     "pinHint": "Use a PIN only you know. Every sale and change is recorded under the account that made it.",
     "createShop": "Create shop",
     "settingUp": "Setting up…",
-    "shopSetUp": "Shop set up"
+    "shopSetUp": "Shop set up",
+    "tagline": "Run your shop from one calm screen",
+    "taglineSub": "Sales, stock, dues and cash in one place, built for the counter.",
+    "feature1Title": "Fast checkout",
+    "feature1Text": "Barcode scan, split payments, printed receipts.",
+    "feature2Title": "Stock you can trust",
+    "feature2Text": "Every sale and purchase moves stock automatically.",
+    "feature3Title": "Dues and cash",
+    "feature3Text": "Customer dues, supplier dues and daily cash at a glance.",
+    "remember": "Keep me signed in for 7 days",
+    "showPin": "Show PIN",
+    "hidePin": "Hide PIN",
+    "welcomeBack": "Welcome back",
+    "previewSample": "Sample preview",
+    "previewToday": "Today's sales",
+    "previewReceipt": "Receipt",
+    "previewItem1": "Basmati rice 5 kg",
+    "previewItem2": "Soybean oil 1 L",
+    "previewItem3": "Green tea",
+    "previewTotal": "Total",
+    "previewPaid": "Paid",
+    "demoQuick": "Quick demo",
+    "usernamePlaceholder": "Your username",
+    "pinPlaceholder": "Your PIN"
   },
   "validation": {
     "pinMin": "PIN must be at least 4 characters",
@@ -228,7 +254,8 @@
       "noData": "No data yet."
     },
     "backupOld": "Last backup was on {date}. Download a fresh backup.",
-    "backupNever": "No backup yet. Download one now to keep your data safe."
+    "backupNever": "No backup yet. Download one now to keep your data safe.",
+    "vsYesterday": "vs yesterday"
   },
   "catalog": {
     "category": {

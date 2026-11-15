@@ -13,6 +13,7 @@ import { sessions, users } from '../db/schema'
 
 export const SESSION_COOKIE = 'pos_session'
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000 // one long shop day
+const REMEMBER_TTL_MS = 7 * 24 * 60 * 60 * 1000 // "Remember me" on the sign-in form
 
 export interface SessionUser {
   id: string
@@ -34,17 +35,18 @@ function newToken(): string {
 }
 
 /** Create a session row and set the cookie. Call from a Route Handler. */
-export async function startSession(db: Db, userId: string): Promise<void> {
+/** `remember`: true keeps the sign-in for a week, false ends the cookie when the browser closes, omitted gives the usual one-shop-day cookie. */
+export async function startSession(db: Db, userId: string, remember?: boolean): Promise<void> {
   const token = newToken()
   const now = Date.now()
-  await db.insert(sessions).values({ id: await sha256Hex(token), userId, expiresAt: now + SESSION_TTL_MS, createdAt: now })
+  await db.insert(sessions).values({ id: await sha256Hex(token), userId, expiresAt: now + (remember ? REMEMBER_TTL_MS : SESSION_TTL_MS), createdAt: now })
   const jar = await cookies()
   jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: SESSION_TTL_MS / 1000,
+    ...(remember === false ? {} : { maxAge: (remember ? REMEMBER_TTL_MS : SESSION_TTL_MS) / 1000 }),
   })
 }
 

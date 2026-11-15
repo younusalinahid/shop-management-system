@@ -4,15 +4,15 @@ import { cn } from "@/lib/utils"
 import { Slot } from "radix-ui"
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-semibold whitespace-nowrap transition-all duration-150 outline-none active:scale-[0.97] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all duration-150 outline-none active:scale-[0.97] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-sm shadow-primary/25 hover:bg-primary-strong hover:shadow-md hover:shadow-primary/30",
+        default: "bg-brand text-primary-foreground shadow-glow hover:brightness-110",
         destructive:
           "bg-destructive text-white shadow-sm shadow-destructive/25 hover:bg-destructive-strong hover:shadow-md focus-visible:ring-destructive/20 dark:bg-destructive/70 dark:focus-visible:ring-destructive/40",
         outline:
-          "border border-input bg-card shadow-xs hover:border-primary/50 hover:bg-primary/5 hover:text-primary dark:bg-input/30 dark:hover:bg-primary/10",
+          "border border-input bg-card shadow-xs hover:border-primary/40 hover:bg-primary/5 hover:text-primary dark:bg-input/30 dark:hover:bg-primary/10",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-primary/15 hover:text-primary",
         ghost:
@@ -21,11 +21,11 @@ const buttonVariants = cva(
         success: "bg-success text-success-foreground shadow-sm shadow-success/25 hover:brightness-95 hover:shadow-md",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
+        default: "h-10 px-4 py-2 has-[>svg]:px-3",
         xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
+        lg: "h-11 rounded-lg px-6 has-[>svg]:px-4",
+        icon: "size-10",
         "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-8",
         "icon-lg": "size-10",

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { Providers } from '@/components/layout/providers'
-import { hindSiliguri, inter } from './fonts'
+import { hindSiliguri, inter, jakarta } from './fonts'
 import './globals.css'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,7 +32,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const locale = await getLocale()
   return (
     // The theme script changes <html class> before React hydrates.
-    <html lang={locale} className={`${inter.variable} ${hindSiliguri.variable}`} suppressHydrationWarning>
+    <html lang={locale} className={`${jakarta.variable} ${inter.variable} ${hindSiliguri.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>

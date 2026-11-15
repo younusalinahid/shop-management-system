@@ -6,33 +6,39 @@
 :root {
   /* The one color the user can change (Topbar → Color): every tinted token below follows this hue. */
   --h: 277;
-  --radius: 0.65rem;
-  --background: oklch(0.972 0.012 var(--h));
-  --foreground: oklch(0.2 0.03 var(--h));
-  --card: oklch(1 0 var(--h));
-  --card-foreground: oklch(0.2 0.03 var(--h));
-  --popover: oklch(1 0 var(--h));
-  --popover-foreground: oklch(0.2 0.03 var(--h));
+  --radius: 0.75rem;
+  /* Second brand stop: violet next to the primary indigo. */
+  --primary-2: oklch(0.54 0.25 calc(var(--h) + 16));
+  --card-edge: rgb(255 255 255 / 80%);
+  --card-ring: rgb(15 23 42 / 6%);
+  --shadow-card: 0 10px 30px -10px rgb(15 23 42 / 8%), 0 1px 2px rgb(15 23 42 / 5%);
+  --shadow-lift: 0 18px 40px -12px rgb(79 70 229 / 22%), 0 2px 4px rgb(15 23 42 / 6%);
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
   /* Brand indigo and a darker shade for hover/pressed states. */
-  --primary: oklch(0.53 0.22 var(--h));
-  --primary-strong: oklch(0.45 0.21 var(--h));
+  --primary: oklch(0.51 0.23 var(--h));
+  --primary-strong: oklch(0.44 0.22 var(--h));
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.95 0.018 var(--h));
-  --secondary-foreground: oklch(0.3 0.07 var(--h));
-  --muted: oklch(0.955 0.01 var(--h));
-  --muted-foreground: oklch(0.5 0.03 var(--h));
-  --accent: oklch(0.945 0.035 var(--h));
+  --secondary: #f1f5f9;
+  --secondary-foreground: #334155;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: oklch(0.96 0.025 var(--h));
   --accent-foreground: oklch(0.4 0.17 var(--h));
   --destructive: oklch(0.58 0.22 27);
   --destructive-strong: oklch(0.5 0.2 27);
-  --success: oklch(0.6 0.15 152);
+  --success: oklch(0.7 0.16 163);
   --success-foreground: oklch(0.99 0 0);
   --warning: oklch(0.76 0.15 72);
   --warning-foreground: oklch(0.3 0.07 60);
   --info: oklch(0.58 0.15 250);
   --info-foreground: oklch(0.99 0 0);
-  --border: oklch(0.905 0.015 var(--h));
-  --input: oklch(0.88 0.02 var(--h));
+  --border: #e2e8f0;
+  --input: #cbd5e1;
   --ring: oklch(0.53 0.22 var(--h));
   --chart-1: oklch(0.55 0.22 var(--h));
   --chart-2: oklch(0.66 0.23 355);
@@ -40,31 +46,36 @@
   --chart-4: oklch(0.68 0.13 215);
   --chart-5: oklch(0.65 0.17 155);
   /* Sidebar: black with light text (it does not follow the theme color); each section adds its own color (lib/section-colors.ts). */
-  --sidebar: oklch(0.17 0 0);
-  --sidebar-foreground: oklch(0.92 0 0);
-  --sidebar-muted: oklch(0.68 0 0);
-  --sidebar-accent: oklch(0.27 0 0);
+  --sidebar: #090d16;
+  --sidebar-foreground: #cbd5e1;
+  --sidebar-muted: #64748b;
+  --sidebar-accent: rgb(255 255 255 / 8%);
   --sidebar-accent-foreground: oklch(0.99 0 0);
   --sidebar-active: oklch(0.8 0.14 var(--h));
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-end: oklch(0.11 0 0);
+  --sidebar-border: rgb(255 255 255 / 8%);
+  --sidebar-end: #0a0f1f;
 }
 
 .dark {
-  --background: oklch(0.17 0.025 var(--h));
-  --foreground: oklch(0.96 0.008 var(--h));
-  --card: oklch(0.21 0.03 var(--h));
-  --card-foreground: oklch(0.96 0.008 var(--h));
-  --popover: oklch(0.21 0.03 var(--h));
-  --popover-foreground: oklch(0.96 0.008 var(--h));
-  --primary: oklch(0.72 0.17 var(--h));
-  --primary-strong: oklch(0.78 0.15 var(--h));
+  --primary-2: oklch(0.68 0.2 calc(var(--h) + 16));
+  --card-edge: rgb(255 255 255 / 7%);
+  --card-ring: rgb(0 0 0 / 0%);
+  --shadow-card: 0 10px 30px -10px rgb(0 0 0 / 45%);
+  --shadow-lift: 0 18px 40px -12px rgb(99 102 241 / 30%);
+  --background: #0a0e1a;
+  --foreground: #f1f5f9;
+  --card: #121829;
+  --card-foreground: #f1f5f9;
+  --popover: #121829;
+  --popover-foreground: #f1f5f9;
+  --primary: oklch(0.7 0.18 var(--h));
+  --primary-strong: oklch(0.76 0.16 var(--h));
   --primary-foreground: oklch(0.17 0.05 280);
-  --secondary: oklch(0.27 0.035 var(--h));
-  --secondary-foreground: oklch(0.95 0.012 var(--h));
-  --muted: oklch(0.26 0.025 var(--h));
-  --muted-foreground: oklch(0.72 0.03 var(--h));
-  --accent: oklch(0.3 0.07 var(--h));
+  --secondary: #1a2438;
+  --secondary-foreground: #e2e8f0;
+  --muted: #182236;
+  --muted-foreground: #94a3b8;
+  --accent: oklch(0.3 0.06 var(--h));
   --accent-foreground: oklch(0.93 0.05 var(--h));
   --destructive: oklch(0.66 0.2 25);
   --destructive-strong: oklch(0.72 0.18 25);
@@ -74,43 +85,28 @@
   --warning-foreground: oklch(0.22 0.05 60);
   --info: oklch(0.7 0.13 250);
   --info-foreground: oklch(0.18 0.04 250);
-  --border: oklch(1 0 var(--h) / 10%);
-  --input: oklch(1 0 var(--h) / 15%);
+  --border: rgb(255 255 255 / 9%);
+  --input: rgb(255 255 255 / 14%);
   --ring: oklch(0.72 0.17 var(--h));
   --chart-1: oklch(0.72 0.17 var(--h));
   --chart-2: oklch(0.74 0.19 355);
   --chart-3: oklch(0.82 0.15 78);
   --chart-4: oklch(0.76 0.12 215);
   --chart-5: oklch(0.74 0.16 155);
-  --sidebar: oklch(0.14 0 0);
+  --sidebar: #090d16;
   --sidebar-foreground: oklch(0.9 0 0);
   --sidebar-muted: oklch(0.66 0 0);
   --sidebar-accent: oklch(0.24 0 0);
   --sidebar-accent-foreground: oklch(0.99 0 0);
   --sidebar-active: oklch(0.78 0.14 var(--h));
   --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-end: oklch(0.09 0 0);
-}
-
-/* Once the user picks a theme color (data-accent is set), the sidebar takes that color instead of black. */
-:root[data-accent] {
-  --sidebar: oklch(0.24 0.08 var(--h));
-  --sidebar-foreground: oklch(0.92 0.02 var(--h));
-  --sidebar-muted: oklch(0.72 0.05 var(--h));
-  --sidebar-accent: oklch(0.33 0.1 var(--h));
-  --sidebar-end: oklch(0.17 0.06 calc(var(--h) + 20));
-}
-:root.dark[data-accent] {
-  --sidebar: oklch(0.2 0.06 var(--h));
-  --sidebar-foreground: oklch(0.9 0.02 var(--h));
-  --sidebar-muted: oklch(0.68 0.04 var(--h));
-  --sidebar-accent: oklch(0.29 0.09 var(--h));
-  --sidebar-end: oklch(0.14 0.045 calc(var(--h) + 20));
+  --sidebar-end: #0a0f1f;
 }
 
 @theme inline {
-  /* English text in Inter; Bangla glyphs (not in Inter) fall through to Hind Siliguri. */
-  --font-sans: var(--font-inter), var(--font-bangla), ui-sans-serif, system-ui, 'Nirmala UI', sans-serif;
+  /* UI text in Inter, headings and numbers in Plus Jakarta Sans. Bangla glyphs (not in either) fall through to Hind Siliguri. */
+  --font-sans: var(--font-latin-ui), var(--font-bangla), ui-sans-serif, system-ui, 'Nirmala UI', sans-serif;
+  --font-display: var(--font-latin-display), var(--font-bangla), ui-sans-serif, system-ui, 'Nirmala UI', sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -162,22 +158,33 @@
   }
   body {
     @apply bg-background font-sans text-foreground antialiased;
+    /* Body and table text sit at medium (500) rather than regular (400). */
+    font-weight: 500;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     font-variant-numeric: tabular-nums;
-    /* Soft color washes in two corners so the page is not flat. */
+    /* Faint indigo, violet and emerald glows give the canvas some depth. */
     background-image:
-      radial-gradient(60rem 28rem at 100% -8%, oklch(0.88 0.1 calc(var(--h) + 23) / 0.35), transparent 70%),
-      radial-gradient(50rem 28rem at -8% 108%, oklch(0.9 0.09 calc(var(--h) + 123) / 0.3), transparent 70%);
+      radial-gradient(52rem 30rem at 92% -6%, oklch(0.85 0.09 calc(var(--h) + 8) / 0.42), transparent 70%),
+      radial-gradient(44rem 26rem at -6% 8%, oklch(0.88 0.08 calc(var(--h) + 40) / 0.3), transparent 70%),
+      radial-gradient(48rem 26rem at 70% 112%, oklch(0.9 0.09 163 / 0.22), transparent 70%);
     background-attachment: fixed;
   }
   .dark body {
     background-image:
-      radial-gradient(60rem 28rem at 100% -8%, oklch(0.4 0.14 calc(var(--h) + 23) / 0.28), transparent 70%),
-      radial-gradient(50rem 28rem at -8% 108%, oklch(0.4 0.11 calc(var(--h) + 143) / 0.22), transparent 70%);
+      radial-gradient(52rem 30rem at 92% -6%, oklch(0.4 0.15 calc(var(--h) + 8) / 0.3), transparent 70%),
+      radial-gradient(44rem 26rem at -6% 8%, oklch(0.38 0.13 calc(var(--h) + 40) / 0.22), transparent 70%);
+  }
+  /* Every Lucide icon in the app shares one stroke weight. */
+  svg.lucide {
+    stroke-width: 1.85;
   }
   h1,
   h2,
   h3 {
-    @apply font-semibold tracking-tight;
+    @apply font-display font-bold tracking-tight;
+    text-wrap: balance;
   }
   /* Tailwind 4 no longer gives buttons a pointer cursor; clickable things should show one. */
   button:not(:disabled),
@@ -192,6 +199,69 @@
   }
   ::selection {
     @apply bg-primary/20;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* Each page fades up once when it opens. */
+main > * {
+  animation: rise-in 280ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  main > * {
+    animation: none;
+  }
+}
+:focus-visible {
+  outline-offset: 2px;
+}
+
+/* Brand gradient (indigo to violet) and its glow, for primary buttons and highlights. */
+.bg-brand {
+  background-image: linear-gradient(135deg, var(--primary), var(--primary-2));
+}
+.shadow-glow {
+  box-shadow:
+    0 8px 20px -8px color-mix(in oklab, var(--primary) 75%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 22%);
+}
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(3%, -4%, 0) scale(1.08);
+  }
+}
+.animate-float-slow {
+  animation: float-slow 7s ease-in-out infinite;
+}
+.animate-drift {
+  animation: drift 16s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-float-slow,
+  .animate-drift {
+    animation: none;
   }
 }
 
@@ -212,6 +282,22 @@
 }
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
   background: oklch(1 0 0 / 35%);
+}
+
+.sidebar-scroll-light {
+  scrollbar-color: rgb(15 23 42 / 18%) transparent;
+}
+.sidebar-scroll-light::-webkit-scrollbar-thumb {
+  background: rgb(15 23 42 / 14%);
+}
+.sidebar-scroll-light::-webkit-scrollbar-thumb:hover {
+  background: rgb(15 23 42 / 28%);
+}
+.dark .sidebar-scroll-light {
+  scrollbar-color: oklch(1 0 0 / 22%) transparent;
+}
+.dark .sidebar-scroll-light::-webkit-scrollbar-thumb {
+  background: oklch(1 0 0 / 18%);
 }
 
 /* PrintPortal: only visible while printing in print mode. */

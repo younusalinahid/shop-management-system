@@ -40,8 +40,8 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   }
 
   return (
-    <header className="no-print sticky top-0 z-30 flex h-16 items-center gap-2 border-b bg-card/90 px-3 shadow-sm shadow-black/[0.03] backdrop-blur sm:px-6">
-      <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-indigo-500 via-pink-500 to-amber-400" aria-hidden />
+    <header className="no-print sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border/70 bg-background/80 px-3 backdrop-blur-xl sm:px-6 lg:px-8">
+      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" aria-hidden />
       <Button variant="ghost" size="icon" className="lg:hidden" onClick={onOpenMenu} aria-label={t('openNavigation')}>
         <Menu className="size-5" />
       </Button>
@@ -76,7 +76,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-9 gap-2 px-2">
-              <span className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-indigo-600 text-sm font-bold text-white shadow-sm">
+              <span className="flex size-8 items-center justify-center rounded-full bg-brand text-sm font-bold text-white shadow-glow">
                 {user.name.slice(0, 1).toUpperCase()}
               </span>
               <span className="hidden text-left sm:block">
