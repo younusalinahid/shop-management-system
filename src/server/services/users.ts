@@ -25,6 +25,8 @@ export interface UserRecord {
   status: 'active' | 'archived'
   lastLoginAt?: number
   createdAt: number
+  /** Cache-busting version of the profile picture, or null when there is none. */
+  avatarVersion: number | null
 }
 
 export const updateUserSchema = z.object({
@@ -33,6 +35,16 @@ export const updateUserSchema = z.object({
   /** Omit to keep the current list; null = back to the role's defaults; an array = exactly these permissions. */
   permissions: permissionsSchema.nullable().optional(),
 })
+/** Small raster pictures only; the browser resizes before upload, so this is a safety limit, not the usual size. */
+const IMAGE_DATA_URL = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/
+export const ownProfileSchema = z
+  .object({
+    name: z.string().trim().min(1, 'v.nameRequired').max(80),
+    /** A data URL to set the picture, null to remove it, omitted to keep it. */
+    avatar: z.string().max(200_000, 'v.imageTooLarge').regex(IMAGE_DATA_URL, 'v.imageType').nullable(),
+  })
+  .partial()
+  .strict()
 export const resetPinSchema = z.object({ pin: pinSchema })
 export const changePinSchema = z.object({ currentPin: z.string().min(1, 'v.required'), newPin: pinSchema })
 
@@ -44,7 +56,7 @@ const toRecord = (u: Row): UserRecord => ({
   role: u.role,
   permissions: u.role === 'owner' ? roleDefaults('owner') : ((u.permissions as Permission[] | null) ?? roleDefaults(u.role)),
   customPermissions: u.role !== 'owner' && u.permissions !== null,
-  status: u.status, lastLoginAt: u.lastLoginAt ?? undefined, createdAt: u.createdAt })
+  status: u.status, lastLoginAt: u.lastLoginAt ?? undefined, createdAt: u.createdAt, avatarVersion: u.avatar ? u.updatedAt : null })
 
 export async function listUsers(db: Db, actor: Actor): Promise<UserRecord[]> {
   assertCan(actor, 'users.manage')
@@ -128,4 +140,35 @@ export async function changeOwnPin(db: Db, actor: Actor, input: { currentPin: st
     await tx.update(users).set({ pinHash: hash, pinSalt: salt, updatedAt: Date.now() }).where(eq(users.id, actor.id))
     await writeAudit(tx, actor, { action: 'user.pin_change', module: 'users', entityId: actor.id })
   })
+}
+
+/** Any user changes their own display name and profile picture. */
+export async function updateOwnProfile(db: Db, actor: Actor, input: z.input<typeof ownProfileSchema>): Promise<UserRecord> {
+  const data = ownProfileSchema.parse(input)
+  return db.transaction(async (tx) => {
+    const u = await lockUser(tx, actor.id)
+    const set: Partial<typeof users.$inferInsert> = { updatedAt: Date.now() }
+    if (data.name !== undefined) set.name = data.name
+    if (data.avatar !== undefined) set.avatar = data.avatar
+    const nameChanged = data.name !== undefined && data.name !== u.name
+    const avatarChanged = data.avatar !== undefined && data.avatar !== u.avatar
+    if (!nameChanged && !avatarChanged) return toRecord(u)
+    const [row] = await tx.update(users).set(set).where(eq(users.id, actor.id)).returning()
+    // The picture itself never goes into the audit log.
+    await writeAudit(tx, actor, {
+      action: 'user.profile_update',
+      module: 'users',
+      entityId: actor.id,
+      before: { name: u.name, avatar: u.avatar ? '[image]' : null },
+      after: { name: row.name, avatar: row.avatar ? '[image]' : null },
+    })
+    return toRecord(row)
+  })
+}
+
+/** The stored picture as bytes, or null when the user has none. */
+export async function getAvatar(db: Db, id: string): Promise<{ type: string; bytes: Buffer } | null> {
+  const [u] = await db.select({ avatar: users.avatar }).from(users).where(eq(users.id, id))
+  const m = u?.avatar?.match(/^data:(image\/(?:png|jpeg|webp));base64,(.+)$/)
+  return m ? { type: m[1], bytes: Buffer.from(m[2], 'base64') } : null
 }

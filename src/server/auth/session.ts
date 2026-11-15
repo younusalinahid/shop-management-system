@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, eq, gt } from 'drizzle-orm'
+import { and, eq, gt, sql } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 import type { Permission } from '@/lib/permissions'
 import type { UserRole } from '@/types/db'
@@ -22,6 +22,8 @@ export interface SessionUser {
   role: UserRole
   /** Custom permissions set by the owner, or null for the role's defaults. Read from the database on every request. */
   permissions: Permission[] | null
+  /** Changes whenever the profile picture does (cache-busts the image URL); null when there is no picture. */
+  avatarVersion: number | null
 }
 
 async function sha256Hex(value: string): Promise<string> {
@@ -56,11 +58,13 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   if (!token) return null
   const db = await getDb()
   const [row] = await db
-    .select({ id: users.id, name: users.name, username: users.username, role: users.role, permissions: users.permissions })
+    .select({ id: users.id, name: users.name, username: users.username, role: users.role, permissions: users.permissions, hasAvatar: sql<boolean>`${users.avatar} is not null`, updatedAt: users.updatedAt })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .where(and(eq(sessions.id, await sha256Hex(token)), gt(sessions.expiresAt, Date.now()), eq(users.status, 'active')))
-  return row ? { ...row, permissions: row.permissions as Permission[] | null } : null
+  if (!row) return null
+  const { hasAvatar, updatedAt, ...rest } = row
+  return { ...rest, permissions: row.permissions as Permission[] | null, avatarVersion: hasAvatar ? updatedAt : null }
 }
 
 /** Delete the session row and clear the cookie. */

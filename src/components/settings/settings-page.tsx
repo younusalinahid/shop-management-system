@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, type Control, type FieldPath } from 'react-hook-form'
 import { useQuery } from '@tanstack/react-query'
-import { Settings as SettingsIcon } from 'lucide-react'
+import { ImagePlus, Settings as SettingsIcon, Store, Trash2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -24,6 +24,7 @@ import { useRefreshData } from '@/hooks/use-catalog'
 import { settingsQuery } from '@/hooks/use-settings'
 import { api } from '@/lib/api-client'
 import { LOCALE_LABELS, type Locale } from '@/i18n/config'
+import { IMAGE_ACCEPT, ImageError, imageToDataUrl } from '@/lib/image-upload'
 
 const percent = z
   .string()
@@ -114,6 +115,7 @@ export function SettingsPage() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6 xl:grid-cols-2" noValidate>
           <Section title={t('shopInfo')} description={t('shopInfoHint')}>
+            <LogoField logo={settings.logoDataUrl} />
             <TextField control={c} name="shopName" label={t('shopName')} />
             <TextField control={c} name="shopPhone" label={t('phone')} />
             <FormField
@@ -292,3 +294,62 @@ function SwitchField({ control, name, label, description }: FieldProps) {
   )
 }
 
+
+/** Shop logo: shown in the sidebar, on the sign-in screen and printed on receipts. Saves as soon as a picture is chosen. */
+function LogoField({ logo }: { logo?: string }) {
+  const t = useTranslations('settings')
+  const refresh = useRefreshData()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+
+  const save = async (logoDataUrl: string, doneMessage: string) => {
+    setBusy(true)
+    try {
+      await api.patch<AppSettings>('/api/settings', { logoDataUrl })
+      await refresh()
+      toast.success(doneMessage)
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const pick = async (file: File | undefined) => {
+    if (!file) return
+    try {
+      await save(await imageToDataUrl(file, { size: 384, mode: 'contain', maxChars: 160_000 }), t('logoSaved'))
+    } catch (e) {
+      toast.error(e instanceof ImageError ? t(e.code === 'type' ? 'logoType' : 'logoDecode') : errorMessage(e))
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-4 rounded-xl border border-dashed bg-muted/40 p-3">
+      {logo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- the shop's own logo, stored as a small data URL
+        <img src={logo} alt={t('logo')} className="size-20 shrink-0 rounded-2xl border bg-white object-contain p-2" />
+      ) : (
+        <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-glow">
+          <Store className="size-8" aria-hidden />
+        </div>
+      )}
+      <div className="grid gap-2">
+        <div>
+          <p className="text-sm font-semibold">{t('logo')}</p>
+          <p className="text-xs text-muted-foreground">{t('logoHint')}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <input ref={fileRef} id="shop-logo" type="file" accept={IMAGE_ACCEPT} className="sr-only" onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = '' }} />
+          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => fileRef.current?.click()}>
+            <ImagePlus /> {logo ? t('logoChange') : t('logoUpload')}
+          </Button>
+          {logo && (
+            <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={busy} onClick={() => void save('', t('logoRemoved'))}>
+              <Trash2 /> {t('logoRemove')}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -10,6 +10,7 @@ export interface SessionUser {
   username: string
   role: UserRole
   permissions: Permission[] | null
+  avatarVersion: number | null
 }
 
 const SessionContext = createContext<SessionUser | null>(null)

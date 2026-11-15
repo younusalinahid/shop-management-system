@@ -6,6 +6,7 @@ import { KeyRound, Pencil, Plus, UserCheck, UserCog, UserX } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/page-header'
+import { UserAvatar } from '@/components/shared/user-avatar'
 import { ErrorState, LoadingState } from '@/components/shared/states'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -33,6 +34,7 @@ interface UserRecord {
   status: 'active' | 'archived'
   lastLoginAt?: number
   createdAt: number
+  avatarVersion: number | null
 }
 
 const ROLES: UserRole[] = ['owner', 'manager', 'cashier']
@@ -89,11 +91,16 @@ export function UsersPage() {
                 {q.data.items.map((u) => (
                   <TableRow key={u.id} className={u.status === 'archived' ? 'opacity-60' : undefined}>
                     <TableCell>
-                      <p className="font-semibold">
-                        {u.name}
-                        {u.id === me.id && <span className="ml-1 text-xs font-normal text-muted-foreground">({t('you')})</span>}
-                      </p>
-                      <p className="text-xs text-muted-foreground">@{u.username}</p>
+                      <div className="flex items-center gap-3">
+                        <UserAvatar user={u} size="sm" />
+                        <div>
+                          <p className="font-semibold">
+                            {u.name}
+                            {u.id === me.id && <span className="ml-1 text-xs font-normal text-muted-foreground">({t('you')})</span>}
+                          </p>
+                          <p className="text-xs text-muted-foreground">@{u.username}</p>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={u.role === 'owner' ? 'default' : u.role === 'manager' ? 'success' : 'muted'}>{tr(u.role)}</Badge>

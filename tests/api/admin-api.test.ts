@@ -138,3 +138,52 @@ describe('backup and restore API', () => {
     expect(csv.split('\r\n')[0]).toContain('name,phone')
   })
 })
+
+// A 1x1 transparent PNG.
+const PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+
+describe('profile and logo', () => {
+  it('lets any user change their own name and picture, and serves the picture', async () => {
+    await apiJson('POST', '/api/setup', { shopName: 'Rahman Store', name: 'Karim', username: 'owner', pin: '2468' })
+    await apiJson('POST', '/api/users', { name: 'Rafi', username: 'rafi', role: 'cashier', pin: '1357' })
+    await callApi('POST', '/api/auth/logout')
+    await signIn('rafi', '1357')
+
+    const me = (await apiJson<{ user: { id: string; avatarVersion: number | null } }>('GET', '/api/auth/me')).body.user
+    expect(me.avatarVersion).toBeNull()
+    expect((await callApi('GET', `/api/users/${me.id}/avatar`)).status).toBe(404)
+
+    // Name and picture, by a cashier who has no user-management rights.
+    const saved = await apiJson<{ user: UserRecord }>('PATCH', '/api/auth/profile', { name: '  Rafiul  ', avatar: PIXEL })
+    expect(saved.status).toBe(200)
+    expect(saved.body.user).toMatchObject({ name: 'Rafiul', role: 'cashier' })
+    expect(saved.body.user.avatarVersion).not.toBeNull()
+
+    const img = await callApi('GET', `/api/users/${me.id}/avatar`)
+    expect(img.status).toBe(200)
+    expect(img.headers.get('content-type')).toBe('image/png')
+    expect((await img.arrayBuffer()).byteLength).toBeGreaterThan(20)
+
+    // Bad input is refused; role cannot be changed here.
+    expect((await apiJson('PATCH', '/api/auth/profile', { name: '   ' })).status).toBe(400)
+    expect((await apiJson('PATCH', '/api/auth/profile', { avatar: 'data:text/html;base64,PGI+' })).status).toBe(400)
+    expect((await apiJson('PATCH', '/api/auth/profile', { role: 'owner' })).status).toBe(400)
+
+    // The picture never lands in the audit log, and null removes it.
+    expect((await apiJson<{ user: UserRecord }>('PATCH', '/api/auth/profile', { avatar: null })).body.user.avatarVersion).toBeNull()
+    await callApi('POST', '/api/auth/logout')
+    await signIn('owner', '2468')
+    const audit = await apiJson<{ items: AuditRecord[] }>('GET', '/api/audit?module=users')
+    expect(JSON.stringify(audit.body.items)).not.toContain('base64')
+    expect(audit.body.items.map((a) => a.action)).toContain('user.profile_update')
+  })
+
+  it('lets the owner set and remove the shop logo, which the sign-in screen shows', async () => {
+    await apiJson('POST', '/api/setup', { shopName: 'Rahman Store', name: 'Karim', username: 'owner', pin: '2468' })
+    expect((await apiJson('PATCH', '/api/settings', { logoDataUrl: PIXEL })).status).toBe(200)
+    expect((await apiJson<{ logo: string | null }>('GET', '/api/auth/users')).body.logo).toBe(PIXEL)
+    expect((await apiJson('PATCH', '/api/settings', { logoDataUrl: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=' })).status).toBe(400)
+    expect((await apiJson('PATCH', '/api/settings', { logoDataUrl: '' })).status).toBe(200)
+    expect((await apiJson<{ logo: string | null }>('GET', '/api/auth/users')).body.logo).toBeNull()
+  })
+})

@@ -15,6 +15,7 @@ import { errorMessage } from '@/lib/errors'
 
 interface LoginInfo {
   shopName: string
+  logo: string | null
   demo: { username: string; password: string } | null
 }
 
@@ -78,9 +79,14 @@ export function LoginPage() {
         />
 
         <div className="relative flex items-center gap-3">
-          <div className="bg-brand shadow-glow flex size-10 items-center justify-center rounded-xl ring-1 ring-white/25">
-            <Store className="size-5" aria-hidden />
-          </div>
+          {data?.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element -- the shop's own logo, stored as a small data URL
+            <img src={data.logo} alt="" className="size-10 rounded-xl bg-white object-contain p-1 ring-1 ring-white/25" />
+          ) : (
+            <div className="bg-brand shadow-glow flex size-10 items-center justify-center rounded-xl ring-1 ring-white/25">
+              <Store className="size-5" aria-hidden />
+            </div>
+          )}
           <span className="text-lg font-semibold tracking-tight">{shopName}</span>
         </div>
 
@@ -162,9 +168,14 @@ export function LoginPage() {
         </div>
         <div className="relative w-full max-w-sm">
           <div className="mb-7 flex flex-col items-center gap-3 text-center lg:hidden">
-            <div className="bg-brand shadow-glow flex size-12 items-center justify-center rounded-2xl text-white ring-1 ring-white/30">
-              <Store className="size-6" aria-hidden />
-            </div>
+            {data?.logo ? (
+              // eslint-disable-next-line @next/next/no-img-element -- the shop's own logo, stored as a small data URL
+              <img src={data.logo} alt="" className="size-14 rounded-2xl border bg-white object-contain p-1.5 shadow-[var(--shadow-card)]" />
+            ) : (
+              <div className="bg-brand shadow-glow flex size-12 items-center justify-center rounded-2xl text-white ring-1 ring-white/30">
+                <Store className="size-6" aria-hidden />
+              </div>
+            )}
             <p className="text-lg font-bold tracking-tight">{shopName}</p>
           </div>
           <div className="rounded-3xl border border-[var(--card-edge)] bg-card p-6 shadow-[var(--shadow-card)] ring-1 ring-[var(--card-ring)] sm:p-8 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:ring-0">

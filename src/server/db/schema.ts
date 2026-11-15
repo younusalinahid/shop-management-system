@@ -55,6 +55,8 @@ export const users = pgTable(
     pinSalt: text('pin_salt').notNull(),
     /** Permissions the owner picked for this user. null = the role's defaults (see lib/permissions.ts). Ignored for owners. */
     permissions: jsonb('permissions').$type<string[] | null>(),
+    /** Profile picture as a small data URL (resized in the browser). Served by GET /api/users/[id]/avatar. */
+    avatar: text('avatar'),
     status: status(),
     lastLoginAt: timestampMs('last_login_at'),
     ...timestamps,

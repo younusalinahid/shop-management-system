@@ -51,7 +51,8 @@
     "changePin": "Change my PIN",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
-    "live": "Live"
+    "live": "Live",
+    "myProfile": "My profile"
   },
   "navGroups": {
     "overview": "Overview",
@@ -177,7 +178,7 @@
     "skuTooLong": "SKU is too long",
     "skuChars": "SKU: letters, digits, . _ - / only",
     "invalidImage": "Invalid image",
-    "imageTooLarge": "Image is too large",
+    "imageTooLarge": "That picture is too large",
     "minStockNegative": "Minimum stock cannot be negative",
     "taxMax": "Tax cannot exceed 100%",
     "unitsMin": "Add at least the base unit",
@@ -208,7 +209,8 @@
     "tooManyItems": "Too many products in one purchase",
     "itemTwice": "This product and unit is listed twice",
     "amountPositive": "Amount must be more than zero",
-    "notBackup": "This is not a backup file from this app"
+    "notBackup": "This is not a backup file from this app",
+    "imageType": "Use a PNG, JPG or WebP picture"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -793,7 +795,16 @@
     "languageValue": "{language} (change it from the language menu at the top)",
     "discard": "Discard changes",
     "saving": "Saving…",
-    "save": "Save settings"
+    "save": "Save settings",
+    "logo": "Shop logo",
+    "logoHint": "Shown in the sidebar, on the sign-in screen and on receipts. PNG, JPG or WebP.",
+    "logoUpload": "Upload logo",
+    "logoChange": "Change logo",
+    "logoRemove": "Remove",
+    "logoSaved": "Logo saved",
+    "logoRemoved": "Logo removed",
+    "logoType": "Use a PNG, JPG or WebP picture",
+    "logoDecode": "That file could not be read as a picture"
   },
   "picker": {
     "placeholder": "Select a product",
@@ -1827,5 +1838,21 @@
     "autoNow": "Save a backup to the folder now",
     "autoSaved": "Backup saved to the folder",
     "autoTip": "To restore one, use \"Choose backup file\" above and pick a file from this folder. For extra safety, copy the folder to a USB drive now and then, or set AUTO_BACKUP_DIR to a OneDrive or Google Drive folder."
+  },
+  "profile": {
+    "title": "My profile",
+    "text": "Your name and picture show in the app and on the sales you make.",
+    "name": "Display name",
+    "nameRequired": "Name is required",
+    "username": "Username",
+    "role": "Role",
+    "uploadPhoto": "Upload photo",
+    "changePhoto": "Change photo",
+    "removePhoto": "Remove photo",
+    "photoHint": "PNG, JPG or WebP. It is cropped to a square.",
+    "imageType": "Use a PNG, JPG or WebP picture",
+    "imageDecode": "That file could not be read as a picture",
+    "save": "Save changes",
+    "saved": "Profile updated"
   }
 }

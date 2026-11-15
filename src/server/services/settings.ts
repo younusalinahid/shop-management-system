@@ -17,7 +17,8 @@ export const settingsPatchSchema = z
     shopName: z.string().trim().min(1, 'v.shopNameRequired').max(100),
     shopPhone: z.string().trim().max(30),
     shopAddress: z.string().trim().max(200),
-    logoDataUrl: z.string().startsWith('data:image/').max(600_000).optional(),
+    /** A data URL sets the logo; an empty string removes it. */
+    logoDataUrl: z.union([z.literal(''), z.string().max(250_000, 'v.imageTooLarge').regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/, 'v.imageType')]),
     invoicePrefix: z.string().trim().min(1, 'v.required').max(10).regex(/^[A-Za-z0-9-/]+$/, 'v.prefixChars'),
     purchasePrefix: z.string().trim().min(1, 'v.required').max(10).regex(/^[A-Za-z0-9-/]+$/, 'v.prefixChars'),
     invoiceFooter: z.string().trim().max(300),

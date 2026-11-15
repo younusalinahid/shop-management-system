@@ -11,6 +11,7 @@ import { hueForGroup } from '@/lib/section-colors'
 import { useOnline } from '@/hooks/use-online'
 import { useSessionUser } from '@/hooks/use-session'
 import { useSettings } from '@/hooks/use-settings'
+import { UserAvatar } from '@/components/shared/user-avatar'
 import { useSidebarStore } from '@/stores/sidebar-store'
 
 interface SidebarNavProps {
@@ -52,9 +53,14 @@ export function SidebarNav({ onNavigate, collapsed = false, onToggleCollapse }: 
 
       {/* Brand. */}
       <div className={cn('relative flex shrink-0 border-b border-slate-200/80 dark:border-white/10', collapsed ? 'flex-col items-center gap-2 py-3' : 'min-h-16 items-center gap-3 px-4 py-3')}>
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-md shadow-indigo-500/30 ring-1 ring-inset ring-white/25">
-          <Store className="size-5" strokeWidth={1.85} aria-hidden />
-        </div>
+        {settings.logoDataUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- the shop's own logo, stored as a small data URL
+          <img src={settings.logoDataUrl} alt="" className="size-10 shrink-0 rounded-2xl bg-white object-contain p-1 shadow-md ring-1 ring-slate-200 dark:ring-white/15" />
+        ) : (
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-md shadow-indigo-500/30 ring-1 ring-inset ring-white/25">
+            <Store className="size-5" strokeWidth={1.85} aria-hidden />
+          </div>
+        )}
         {!collapsed && (
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1.5">
@@ -156,8 +162,8 @@ function SidebarFooter({ collapsed }: { collapsed: boolean }) {
   )
   const status = online ? t('shell.live') : t('shell.offline')
   const avatar = (
-    <span className="relative flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand text-sm font-bold text-white ring-1 ring-inset ring-white/25">
-      {user.name.slice(0, 1).toUpperCase()}
+    <span className="relative shrink-0">
+      <UserAvatar user={user} />
       <span className="absolute -right-0.5 -bottom-0.5">{dot}</span>
     </span>
   )

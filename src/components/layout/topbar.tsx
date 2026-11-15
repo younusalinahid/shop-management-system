@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { KeyRound, LogOut, Menu, Monitor, Moon, Sun, Wifi, WifiOff } from 'lucide-react'
+import { KeyRound, LogOut, Menu, Monitor, Moon, Sun, UserRound, Wifi, WifiOff } from 'lucide-react'
 import { ChangePinDialog } from '@/components/admin/users-page'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,7 +16,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useOnline } from '@/hooks/use-online'
 import { useTranslations } from 'next-intl'
+import { UserAvatar } from '@/components/shared/user-avatar'
 import { ColorPicker } from './color-picker'
+import { ProfileDialog } from './profile-dialog'
 import { LanguageSwitcher } from './language-switcher'
 import { useRouter } from 'next/navigation'
 import { useSessionUser } from '@/hooks/use-session'
@@ -31,6 +33,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const t = useTranslations('shell')
   const tr = useTranslations('roles')
   const [changingPin, setChangingPin] = useState(false)
+  const [editingProfile, setEditingProfile] = useState(false)
   const ThemeIcon = theme === 'dark' ? Moon : theme === 'light' ? Sun : Monitor
 
   const handleSignOut = async () => {
@@ -76,9 +79,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-9 gap-2 px-2">
-              <span className="flex size-8 items-center justify-center rounded-full bg-brand text-sm font-bold text-white shadow-glow">
-                {user.name.slice(0, 1).toUpperCase()}
-              </span>
+              <UserAvatar user={user} size="sm" className="shadow-glow" />
               <span className="hidden text-left sm:block">
                 <span className="block text-sm leading-tight font-semibold">{user.name}</span>
                 <span className="block text-xs leading-tight text-muted-foreground">{tr(user.role)}</span>
@@ -91,6 +92,9 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
               <span className="block text-xs text-muted-foreground">@{user.username}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setEditingProfile(true)}>
+              <UserRound className="size-4" /> {t('myProfile')}
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setChangingPin(true)}>
               <KeyRound className="size-4" /> {t('changePin')}
             </DropdownMenuItem>
@@ -101,6 +105,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         </DropdownMenu>
       )}
       {changingPin && <ChangePinDialog onClose={() => setChangingPin(false)} />}
+      {editingProfile && <ProfileDialog onClose={() => setEditingProfile(false)} />}
     </header>
   )
 }
