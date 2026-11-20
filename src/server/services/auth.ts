@@ -136,8 +136,8 @@ export async function login(db: Db, username: string, pin: string): Promise<Publ
 }
 
 /**
- * Public demo account (a Manager, so visitors can look around but not touch users, settings or backups).
- * Its credentials are shown on the login screen, but only while an active user with this username exists.
+ * Public demo account (an Owner / Admin, so visitors can try every feature: users, settings, backups, reports).
+ * Its credentials are pre-filled on the login screen, but only while an active user with this username exists.
  * Create it with `node scripts/seed-demo.mjs`; disable or delete that user to hide the card.
  */
 export const DEMO_USERNAME = 'younus ali nahid'
@@ -147,6 +147,6 @@ export async function getDemoLogin(db: Db): Promise<{ username: string; password
   const [row] = await db
     .select({ id: users.id })
     .from(users)
-    .where(and(eq(users.username, DEMO_USERNAME), eq(users.status, 'active'), eq(users.role, 'manager')))
+    .where(and(eq(users.username, DEMO_USERNAME), eq(users.status, 'active'), eq(users.role, 'owner')))
   return row ? { username: DEMO_USERNAME, password: DEMO_PASSWORD } : null
 }

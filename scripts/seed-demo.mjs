@@ -1,4 +1,4 @@
-// Creates (or resets) the public demo account: a Manager, username "younus ali nahid", password "12345".
+// Creates (or resets) the public demo account: an Owner / Admin, username "younus ali nahid", password "12345".
 // Usage: node scripts/seed-demo.mjs        (reads DATABASE_URL from the environment or .env.local)
 // Keep the values in sync with DEMO_USERNAME / DEMO_PASSWORD in src/server/services/auth.ts.
 import { pbkdf2Sync, randomBytes } from 'node:crypto'
@@ -25,11 +25,11 @@ const sql = postgres(process.env.DATABASE_URL, { max: 1 })
 try {
   const [existing] = await sql`select id from users where username in (${USERNAME}, ${LEGACY_USERNAME}) order by (username = ${USERNAME}) desc limit 1`
   if (existing) {
-    await sql`update users set name = ${NAME}, username = ${USERNAME}, role = 'manager', status = 'active', pin_hash = ${hash}, pin_salt = ${salt.toString('hex')}, updated_at = ${now} where id = ${existing.id}`
+    await sql`update users set name = ${NAME}, username = ${USERNAME}, role = 'owner', status = 'active', pin_hash = ${hash}, pin_salt = ${salt.toString('hex')}, updated_at = ${now} where id = ${existing.id}`
     console.log('Demo account reset.')
   } else {
     await sql`insert into users (name, username, role, pin_hash, pin_salt, status, created_at, updated_at)
-              values (${NAME}, ${USERNAME}, 'manager', ${hash}, ${salt.toString('hex')}, 'active', ${now}, ${now})`
+              values (${NAME}, ${USERNAME}, 'owner', ${hash}, ${salt.toString('hex')}, 'active', ${now}, ${now})`
     console.log('Demo account created.')
   }
 } finally {

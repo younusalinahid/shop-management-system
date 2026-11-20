@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -31,6 +31,15 @@ export function LoginPage() {
   const [showPin, setShowPin] = useState(false)
   const [remember, setRemember] = useState(false)
   const pinRef = useRef<HTMLInputElement>(null)
+  const prefilled = useRef(false)
+
+  // Public demo: pre-fill the demo (owner) login once, so visitors can just press Sign in. Typing over it still works.
+  useEffect(() => {
+    if (!demo || prefilled.current) return
+    prefilled.current = true
+    setUsername(demo.username)
+    setPin(demo.password)
+  }, [demo])
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
