@@ -256,7 +256,6 @@
       "noData": "No data yet."
     },
     "backupOld": "Last backup was on {date}. Download a fresh backup.",
-    "backupNever": "No backup yet. Download one now to keep your data safe.",
     "vsYesterday": "vs yesterday"
   },
   "catalog": {

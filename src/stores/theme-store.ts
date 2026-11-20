@@ -6,9 +6,9 @@ const KEY = 'pos-theme'
 function readTheme(): Theme {
   try {
     const t = localStorage.getItem(KEY)
-    return t === 'light' || t === 'dark' ? t : 'system'
+    return t === 'light' || t === 'dark' || t === 'system' ? t : 'light'
   } catch {
-    return 'system'
+    return 'light'
   }
 }
 
@@ -51,12 +51,12 @@ interface ThemeState {
   hue: number | null
   setTheme: (t: Theme) => void
   setHue: (h: number | null) => void
-  /** Load the saved choice. Call after mount: the server can't read localStorage, so both start at 'system'. */
+  /** Load the saved choice. Call after mount: the server can't read localStorage, so both start at 'light'. */
   hydrate: () => void
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({
-  theme: 'system',
+  theme: 'light',
   hue: null,
   hydrate: () => set({ theme: readTheme(), hue: readHue() }),
   setHue: (hue) => {

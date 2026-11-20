@@ -26,7 +26,7 @@ export const viewport: Viewport = {
 }
 
 // Applies the saved theme and brand color before first paint, so there is no flash of the wrong theme.
-const THEME_SCRIPT = `try{var t=localStorage.getItem('pos-theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);var h=localStorage.getItem('pos-hue');if(h!==null&&+h>=0&&+h<=360){document.documentElement.style.setProperty('--h',h);document.documentElement.setAttribute('data-accent','')}}catch(e){}`
+const THEME_SCRIPT = `try{var t=localStorage.getItem('pos-theme')||'light';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);var h=localStorage.getItem('pos-hue');if(h!==null&&+h>=0&&+h<=360){document.documentElement.style.setProperty('--h',h);document.documentElement.setAttribute('data-accent','')}}catch(e){}`
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale()

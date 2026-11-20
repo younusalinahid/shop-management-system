@@ -69,7 +69,7 @@ export function DashboardPage() {
   const { data } = useQuery({ queryKey: ['dashboard'], queryFn: () => api.get<DashboardData>('/api/dashboard') })
   const charts = useQuery({ queryKey: ['dashboard-charts'], queryFn: () => api.get<DashboardCharts>('/api/dashboard/charts') })
   const canBackup = usePermission('backup.manage')
-  const backupDue = canBackup && settings.updatedAt > 0 && (!settings.lastBackupAt || daysBetween(toDateOnly(settings.lastBackupAt), todayDateOnly()) >= settings.autoBackupReminderDays)
+  const backupDue = canBackup && settings.updatedAt > 0 && !!settings.lastBackupAt && (daysBetween(toDateOnly(settings.lastBackupAt), todayDateOnly()) >= settings.autoBackupReminderDays)
   // Today against yesterday, from the last 30 days of recorded sales.
   const days = charts.data?.daily ?? []
   const yesterdayKey = addDays(todayDateOnly(), -1)
@@ -88,7 +88,7 @@ export function DashboardPage() {
       {backupDue && (
         <Link href="/backup" className="mb-6 flex items-center gap-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm font-medium transition-colors hover:bg-warning/20">
           <AlertTriangle className="size-5 shrink-0 text-warning-foreground dark:text-warning" aria-hidden />
-          {settings.lastBackupAt ? t('backupOld', { date: formatDate(settings.lastBackupAt) }) : t('backupNever')}
+          {t('backupOld', { date: formatDate(settings.lastBackupAt!) })}
         </Link>
       )}
 
